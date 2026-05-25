@@ -8,7 +8,7 @@
 )
 
 #let (
-  intros: (
+  intro: (
     eof: token-eof,
     lit: token-lit,
     span: token-span,
@@ -33,4 +33,3 @@
 #assert(result-is-err(validate(TOKEN, (__tag__: "missing"))))
 #assert(result-is-err(validate-constr(TOKEN.constrs.span, 1)))
 #assert(result-is-err(validate-constr(TOKEN.constrs.span, 1, 2, 3)))
-

@@ -10,7 +10,7 @@
 }
 
 #let (
-  intros: (
+  intro: (
     nothing: option-nothing,
     some: option-some,
   ),
@@ -35,9 +35,13 @@
 }
 
 #let (
-  intros: (
+  intro: (
     nil: list-nil,
     cons: list-cons,
+  ),
+  fields: (
+    head: list-head-field,
+    tail: list-tail-field,
   ),
   elim: list-elim,
   rec: list-rec,
@@ -46,7 +50,9 @@
 #let one-two = list-cons(1, list-cons(2, list-nil))
 #assert.eq(list-nil, (__tag__: "nil"))
 #assert.eq(list-cons(head: 1, tail: list-nil), (__tag__: "cons", head: 1, tail: list-nil))
-#assert.eq(result-unwrap(validate(LIST(int), one-two)), one-two)
+#assert.eq(validate(LIST(int), one-two), ok(one-two))
+#assert.eq(list-head-field(one-two), 1)
+#assert.eq(list-tail-field(one-two), list-cons(2, list-nil))
 
 #let list-head = list-elim(
   nil: none,
@@ -60,3 +66,18 @@
 )
 #assert.eq(list-len(list-nil), 0)
 #assert.eq(list-len(one-two), 2)
+
+#let list-append(l1, l2) = list-rec(
+  nil: l2,
+  cons: list-cons,
+)(l1)
+
+#let list(.. args) = {
+  let xs = list-nil
+  for elem in args.pos().rev() {
+    xs = list-cons(elem, xs)
+  }
+  xs
+}
+
+#assert.eq(list-append(list(1, 2), list(3)), list(1, 2, 3))

@@ -103,7 +103,7 @@
   }
   (
     __tag__: "spec/struct",
-    __name__: __name__,
+    name: __name__,
     fields: fields,
   )
 }
@@ -125,23 +125,25 @@
   )
 }
 
+#let spec-union-elems(spec) = spec-elim(
+  empty_case: () => (),
+  builtin: type_ => (spec,),
+  any: () => (spec,),
+  union_case: (name, elems) => elems,
+  enum: (name, constrs) => (spec,),
+  struct: (name, fields) => (spec,),
+  array_case: (name, inner) => (spec,),
+  dictionary_case: (name, key, value) => (spec,),
+  function_case: (name, dom, cod) => (spec,),
+  fix: (name, fun) => (spec,),
+  self: depth => (spec,),
+)(spec)
+
 #let spec-union2(left, right) = {
-  let elems = {
-    if left.__tag__ == "spec/empty" {
-      (right,)
-    } else if right.__tag__ == "spec/empty" {
-      (left,)
-    } else if left.__tag__ == "spec/union" and right.__tag__ == "spec/union" {
-      left.elems + right.elems
-    } else if left.__tag__ == "spec/union" {
-      left.elems + (right,)
-    } else if right.__tag__ == "spec/union" {
-      (left,) + right.elems
-    } else {
-      (left, right)
-    }
-  }.dedup()
-  if elems.len() <= 1 {
+  let elems = (spec-union-elems(left) + spec-union-elems(right)).dedup()
+  if elems.len() == 0 {
+    spec-empty
+  } else if elems.len() == 1 {
     elems.first()
   } else {
     (
@@ -200,15 +202,42 @@
   ))
 }
 
-// #let ARG-SPEC = 
+#let SPEC-NAME = spec-union(str, type(auto))
+
+#let ARGS-SPEC(T) = spec-enum(
+  __name__: "args-spec(" + spec-to-string(T) + ")",
+  .. (
+    ("none", none),
+    ("args", (
+      pos: spec-array(T),
+      named: spec-dictionary(str, T),
+    )),
+  ).to-dict()
+)
+
+#let CONSTR-SPEC(T) = spec-enum(
+  __name__: "constr-spec(" + spec-to-string(T) + ")",
+  .. (
+    ("none", none),
+    ("fields", (
+      fields: spec-dictionary(str, T),
+    )),
+  ).to-dict()
+)
 
 #let SPEC = spec-fix(
   __name__: "spec",
   self => spec-enum(
     __name__: "spec-shape",
-    builtin: type,
+    empty: none,
+    builtin: (name: SPEC-NAME, value: type),
     any: none,
-    union: (name: str, elems: spec-array(self)),
+    enum: (name: SPEC-NAME, constrs: spec-dictionary(str, CONSTR-SPEC(self))),
+    struct: (name: SPEC-NAME, fields: spec-dictionary(str, self)),
+    union: (name: SPEC-NAME, elems: spec-array(self)),
+    array: (name: SPEC-NAME, inner: self),
+    dictionary: (name: SPEC-NAME, key: self, value: self),
+    function: (name: SPEC-NAME, dom: ARGS-SPEC(self), cod: self),
     fix: (name: str, fun: spec-function(self)(self)),
     self: (depth: int),
   )

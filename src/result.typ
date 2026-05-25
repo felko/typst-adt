@@ -1,5 +1,6 @@
 #let RESULT(T) = (
   __tag__: "spec/enum",
+  name: auto,
   constrs: (
     ok: (
       __tag__: "constr-spec/fields",

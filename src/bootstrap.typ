@@ -146,10 +146,15 @@
   self: auto,
 ) = spec => {
   let missing-cases = (
+    empty: empty_case,
     builtin: builtin,
     any: any,
+    union: union_case,
     enum: enum,
     struct: struct,
+    array: array_case,
+    dictionary: dictionary_case,
+    function: function_case,
     self: self,
     fix: fix,
   ).pairs().filter(((k, v)) => v == auto).map(p => p.at(0))
@@ -318,39 +323,36 @@
 }
 
 #let spec-to-string(spec, prec: 0, depth: 0) = {
-  if spec.at("__name__", default: auto) != auto {
-    return spec.__name__
+  let existing-name = spec.at("name", default: spec.at("__name__", default: auto))
+  if existing-name != auto {
+    return existing-name
   }
-  if spec.__tag__ == "spec/builtin" {
-    str(spec.value)
-  } else if spec.__tag__ == "spec/any" {
-    "any"
-  } else if spec.__tag__ == "spec/empty" {
-    "empty"
-  } else if spec.__tag__ == "spec/function" {
-    "(" + (spec.dom.pos().map(spec-to-string) + spec.dom.named().map(((arg-name, arg-spec)) => arg-name + ": " + spec-to-string(arg-spec))).join(", ") + ") → " + spec-to-string(spec.cod) 
-  } else if spec.__tag__ == "spec/enum" {
-    "enum {" + spec.constrs.pairs().map(((constr-name, constr-spec)) => {
-      constr-name + constr-spec-to-string-aux(spec-to-string, constr-spec)
-    }).join(", ") + "}"
-  } else if spec.__tag__ == "spec/struct" {
-    "struct {" + spec.fields.pairs().map(((field-name, field-spec)) => {
-      field-name + ": " + spec-to-string(field-spec)
-    }).join(", ")
-  } else if spec.__tag__ == "spec/fix" {
-    let var = "self@" + str(depth)
-    "fix " + var + ". " + spec-to-string(
-      (spec.fun)((
-        __tag__: "spec/self",
-        depth: depth
-      )),
-      depth: depth + 1
-    )
-  } else if spec.__tag__ == "spec/self" {
-    "self@" + str(spec.depth)
-  } else {
-    panic("ill-formed spec: `" + repr(spec) + "`")
-  }
+  spec-elim(
+    empty_case: () => "empty",
+    builtin: type_ => str(type_),
+    any: () => "any",
+    union_case: (name, elems) => elems.map(elem => spec-to-string(elem, depth: depth)).join(" | "),
+    enum: (name, constrs) => "enum {" + constrs.pairs().map(((constr-name, constr-spec)) => {
+      constr-name + constr-spec-to-string-aux(spec => spec-to-string(spec, depth: depth), constr-spec)
+    }).join(", ") + "}",
+    struct: (name, fields) => "struct {" + fields.pairs().map(((field-name, field-spec)) => {
+      field-name + ": " + spec-to-string(field-spec, depth: depth)
+    }).join(", ") + "}",
+    array_case: (name, inner) => "array(" + spec-to-string(inner, depth: depth) + ")",
+    dictionary_case: (name, key, value) => "dictionary(" + spec-to-string(key, depth: depth) + ", " + spec-to-string(value, depth: depth) + ")",
+    function_case: (name, dom, cod) => args-spec-to-string-aux(spec => spec-to-string(spec, depth: depth), dom) + " → " + spec-to-string(cod, depth: depth),
+    fix: (name, fun) => {
+      let var = "self@" + str(depth)
+      "fix " + var + ". " + spec-to-string(
+        (fun)((
+          __tag__: "spec/self",
+          depth: depth
+        )),
+        depth: depth + 1
+      )
+    },
+    self: depth => "self@" + str(depth),
+  )(spec)
 }
 
 #let args-spec-to-string = args-spec-to-string-aux.with(spec-to-string)
@@ -488,7 +490,7 @@
 
 #let spec-parse(spec) = {
   if type(spec) == type {
-    ok((__tag__: "spec/builtin", value: spec))
+    ok((__tag__: "spec/builtin", name: str(spec), value: spec))
   } else if type(spec) == function {
     ok(spec)
   } else if type(spec) == dictionary {
@@ -501,10 +503,11 @@
           err("too many fields in `spec/empty`: " + spec.keys().map(key => "`" + key + "`").join(", "))
         }
       } else if tag == "spec/builtin" {
+        let name = spec.remove("name", default: auto)
         let value = spec.remove("value")
         if type(value) == type {
           if spec.len() == 0 {
-            ok((__tag__: "spec/builtin", value: value))
+            ok((__tag__: "spec/builtin", name: name, value: value))
           } else {
             err("too many fields in `spec/builtin`: " + spec.keys().map(key => "`" + key + "`").join(", "))
           }
@@ -518,10 +521,11 @@
             err("too many fields in `spec/any`: " + spec.keys().map(key => "`" + key + "`").join(", "))
           }
       } else if tag == "spec/enum" {
+        let name = spec.remove("name", default: auto)
         let constrs = spec.remove("constrs")
         if type(constrs) == dictionary {
           result-map(
-            constrs => (__tag__: "spec/enum", constrs: constrs),
+            constrs => (__tag__: "spec/enum", name: name, constrs: constrs),
             result-all-dict(
               args-spec => constr-spec-parse-aux(spec-parse, args-spec),
               constrs
@@ -600,10 +604,12 @@
         err("unknown spec kind: `" + repr(tag) + "`")
       }
     } else {
+      let name = spec.remove("name", default: spec.remove("__name__", default: auto))
       result-map(
         fields => (
           __tag__: "spec/struct",
-          fields: fields
+          name: name,
+          fields: fields,
         ),
         result-all-dict(spec-parse, spec),
       )

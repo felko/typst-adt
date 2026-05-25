@@ -41,7 +41,20 @@
 }
 
 #let generate-rec-field(go, field-spec, value) = {
-  if type(field-spec) == dictionary and field-spec.keys().contains("__tag__") and field-spec.__tag__ == "spec/fix" {
+  let is-recursive = spec-elim(
+    empty_case: () => false,
+    builtin: type_ => false,
+    any: () => false,
+    union_case: (name, elems) => false,
+    enum: (name, constrs) => false,
+    struct: (name, fields) => false,
+    array_case: (name, inner) => false,
+    dictionary_case: (name, key, value) => false,
+    function_case: (name, dom, cod) => false,
+    fix: (name, fun) => true,
+    self: depth => false,
+  )(field-spec)
+  if is-recursive {
     go(value)
   } else {
     value
@@ -86,6 +99,10 @@
   go
 })
 
+#let generate-enum-intros(constrs) = constrs.pairs().map(((constr-name, constr-spec)) => {
+  (constr-name, generate-constr(constr-name, constr-spec))
+}).to-dict()
+
 #let generate-intro(spec) = spec-elim(
   empty_case: () => (:),
   builtin: type_ => (intro: generate-value-intro(spec)),
@@ -94,11 +111,10 @@
   struct: (name, fields) => (
     intro: generate-constr(none, (__tag__: "constr-spec/fields", fields: fields))
   ),
-  enum: (name, constrs) => (
-    intros: constrs.pairs().map(((constr-name, constr-spec)) => {
-      (constr-name, generate-constr(constr-name, constr-spec))
-    }).to-dict()
-  ),
+  enum: (name, constrs) => {
+    let intros = generate-enum-intros(constrs)
+    (intro: intros, intros: intros)
+  },
   array_case: (name, inner) => (intro: generate-value-intro(spec)),
   dictionary_case: (name, key, inner) => (intro: generate-value-intro(spec)),
   function_case: (name, dom, cod) => (intro: generate-function-intro(dom, cod)),
@@ -106,16 +122,27 @@
   self: (.. args) => (:),
 )(spec)
 
+#let constr-spec-args(constr-spec) = constr-spec-elim(
+  none_: arguments(),
+  fields: fields => arguments(.. fields),
+)(constr-spec)
+
 #let CASES(spec, T) = spec-struct(
-  .. if spec.__tag__ == "spec/enum" {
-    spec.constrs.pairs().map(((constr-name, constr-spec)) => {
+  .. spec-elim(
+    empty_case: () => panic("empty specs do not have cases"),
+    builtin: type_ => panic("builtin specs do not have cases"),
+    any: () => panic("any specs do not have cases"),
+    union_case: (name, elems) => panic("union specs do not have cases"),
+    enum: (name, constrs) => constrs.pairs().map(((constr-name, constr-spec)) => {
       (constr-name, spec-function(.. constr-spec-args(constr-spec))(T))
-    }).to-dict()
-  } else if spec.__tag__ == "spec/struct" {
-    (mk: spec-function(.. spec.fields)(T))
-  } else {
-    panic("todo")
-  }
+    }).to-dict(),
+    struct: (name, fields) => (mk: spec-function(.. fields)(T)),
+    array_case: (name, inner) => panic("array specs do not have cases"),
+    dictionary_case: (name, key, value) => panic("dictionary specs do not have cases"),
+    function_case: (name, dom, cod) => panic("function specs do not have cases"),
+    fix: (name, fun) => CASES(fun(spec), T),
+    self: depth => panic("self specs do not have cases"),
+  )(spec)
 )
 
 #let generate-elim(spec) = spec-elim(
@@ -167,17 +194,49 @@
   self: (.. args) => (:),
 )(spec)
 
+#let generate-enum-field(spec, constrs, field-name) = value => {
+  value = result-unwrap(validate(spec, value))
+  let tag = value.remove("__tag__").split("/").last()
+  let constr-spec = constrs.at(tag)
+  let fields = result-unwrap(validate-constr(constr-spec, .. value))
+  if fields.keys().contains(field-name) {
+    fields.at(field-name)
+  } else {
+    panic("constructor `" + tag + "` does not have field `" + field-name + "`")
+  }
+}
+
+#let generate-enum-fields(spec, constrs) = {
+  let field-names = ()
+  for constr-spec in constrs.values() {
+    if constr-spec.__tag__ == "constr-spec/fields" {
+      field-names += constr-spec.fields.keys()
+    }
+  }
+  (
+    fields: field-names.dedup().map(field-name => (
+      field-name,
+      generate-enum-field(spec, constrs, field-name),
+    )).to-dict()
+  )
+}
+
 #let generate-fields(spec) = spec-elim(
   empty_case: () => (:),
   builtin: type_ => (:),
   any: () => (:),
   union_case: (name, elems) => (:),
-  struct: (name, fields) => (:),
-  enum: (name, constrs) => (:),
+  struct: (name, fields) => (
+    fields: fields.keys().map(field-name => (
+      field-name,
+      value => result-unwrap(validate(spec, value)).at(field-name),
+    )).to-dict()
+  ),
+  enum: (name, constrs) => generate-enum-fields(spec, constrs),
   array_case: (name, inner) => (:),
   dictionary_case: (name, key, inner) => (:),
   function_case: (name, dom, cod) => (:),
-  fix: (name, fun) => (:),
+  fix: (name, fun) => generate-fields(fun(spec)),
   self: (.. args) => (:),
 )(spec)
 
