@@ -10,6 +10,9 @@
     }
   },
   args: (.. args-spec) => {
+    if args.pos().len() != args-spec.pos().len() {
+      return err("expected " + str(args-spec.pos().len()) + " positional argument(s), got " + str(args.pos().len()))
+    }
     let pos = result-all(
       ((pos-spec, pos-value)) => {
         validate(pos-spec, pos-value)
@@ -41,8 +44,9 @@
     } else {
       result-map(
         named => arguments(.. pos, .. named),
-        result-all-dict(((arg-spec, arg-value)) =>
-          validate(arg-spec, arg-value)
+        result-all-dict(
+          ((arg-spec, arg-value)) => validate(arg-spec, arg-value),
+          named-spec-value,
         ),
       )
     }
@@ -87,6 +91,9 @@
 )(constr-spec)
 
 #let validate(spec, value) = spec-elim(
+  empty_case: () => {
+    err("empty type has no values")
+  },
   builtin: type_ => {
     assert(type(type_) == type)
     if type(value) == type_ {
@@ -120,6 +127,9 @@
       err("not an enum value: `" + repr(value) + "`")
     }
   },
+  union_case: (name, elems) => {
+    result-any(elem => validate(elem, value), elems)
+  },
   struct: (name, fields-spec) => validate-constr-aux(
     validate,
     (
@@ -128,6 +138,37 @@
     ),
     .. value
   ),
+  array_case: (name, inner) => {
+    if type(value) != array {
+      err("expected array, got `" + str(type(value)) + "`")
+    } else {
+      result-all(validate.with(inner), value)
+    }
+  },
+  dictionary_case: (name, key, inner) => {
+    if type(value) != dictionary {
+      err("expected dictionary, got `" + str(type(value)) + "`")
+    } else {
+      result-map(
+        pairs => pairs.to-dict(),
+        result-all(
+          ((k, v)) => result-map2(
+            (k, v) => (k, v),
+            validate(key, k),
+            validate(inner, v),
+          ),
+          value.pairs(),
+        ),
+      )
+    }
+  },
+  function_case: (name, dom, cod) => {
+    if type(value) == function {
+      ok(value)
+    } else {
+      err("expected function, got `" + str(type(value)) + "`")
+    }
+  },
   fix: (name, fun) => validate(fun(spec), value),
   self: depth => {
     panic("todo")
@@ -136,4 +177,3 @@
 
 #let validate-args = validate-args-aux.with(validate)
 #let validate-constr = validate-constr-aux.with(validate)
-

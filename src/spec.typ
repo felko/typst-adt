@@ -30,6 +30,10 @@
   __tag__: "spec/any",
 )
 
+#let spec-empty = (
+  __tag__: "spec/empty",
+)
+
 #let spec-enum(__name__: auto, .. args) = {
   assert(
     args.pos().len() == 0,
@@ -64,17 +68,6 @@
     __tag__: "spec/enum",
     name: __name__,
     constrs: constrs,
-    // validate: value => {
-    //   if type(value) != dictionary {
-    //     return err("not a dictionary")
-    //   }
-    //   if not value.keys().contains("__tag__") {
-    //     return err("not an enum value")
-    //   }
-    //   let constr-name = value.__tag__
-    //   let constr-spec = constrs.at(constr-name)
-    //   (constr-spec.validate)()
-    // }
   )
 }
 
@@ -112,29 +105,6 @@
     __tag__: "spec/struct",
     __name__: __name__,
     fields: fields,
-    // validate: value => {
-    //   if type(value) != dictionary {
-    //     return err("expected dictionary")
-    //   }
-    //   let new-value = (:)
-    //   let errs = (:)
-    //   for (field-name, field-spec) in fields.pairs() {
-    //     let field-value = value.remove(field-name)
-    //     let field-result = (field-spec.validate)(field-value)
-    //     if field-result.__tag__ == "result/ok" {
-    //       new-value.insert(field-name, field-result.value)
-    //     } else if field-result.__tag__ == "result/err" {
-    //       errs.insert(field-name, field-result.msg)
-    //     } else {
-    //       panic("invalid result: `" + repr(field-result) + "`")
-    //     }
-    //   }
-    //   if errs.len() != 0 {
-    //     err(errs.map(((field-name, field-error-msg)) => "  · in field `" + field-name + ": " + field-error-msg))
-    //   } else {
-    //     ok(new-value)
-    //   }
-    // }
   )
 }
 
@@ -153,19 +123,15 @@
     name: __name__,
     fun: fun,
   )
-  // let validate(value) = ((fun.apply)((
-  //   .. partial-type,
-  //   validate: validate
-  // )).validate)(value)
-  // (
-  //   .. partial-type,
-  //   validate: validate
-  // )
 }
 
 #let spec-union2(left, right) = {
   let elems = {
-    if left.__tag__ == "spec/union" and right.__tag__ == "spec/union" {
+    if left.__tag__ == "spec/empty" {
+      (right,)
+    } else if right.__tag__ == "spec/empty" {
+      (left,)
+    } else if left.__tag__ == "spec/union" and right.__tag__ == "spec/union" {
       left.elems + right.elems
     } else if left.__tag__ == "spec/union" {
       left.elems + (right,)
@@ -182,7 +148,6 @@
       __tag__: "spec/union",
       name: auto,
       elems: elems,
-      // validate: value => result-any(spec => (spec.validate)(value))
     )
   }
 }
@@ -192,25 +157,24 @@
     args.named().len() == 0,
     message: "unexpected arguments: " + repr(arguments(.. args.named())),
   )
-  let unioned = args.pos().fold(spec-empty, spec-union2)
+  let unioned = args.pos().map(spec => result-unwrap(spec-parse(spec))).fold(spec-empty, spec-union2)
   unioned.name = __name__
   unioned
 }
 
 #let spec-array(__name__: auto, inner) = {
-  result-map(
+  result-unwrap(result-map(
     inner => (
       __tag__: "spec/array",
       name: __name__,
       inner: inner,
-      // validate: result-all.with(inner.validate)
     ),
     spec-parse(inner),
-  )
+  ))
 }
 
 #let spec-dictionary(__name__: auto, key, value) = {
-  result-map2(
+  result-unwrap(result-map2(
     (key, value) => (
       __tag__: "spec/dictionary",
       name: __name__,
@@ -220,20 +184,20 @@
     ),
     spec-parse(key),
     spec-parse(value),
-  )
+  ))
 }
 
 #let spec-function(.. dom) = cod => {
-  result-map2(
+  result-unwrap(result-map2(
     (dom, cod) => (
       __tag__: "spec/function",
-      name: __name__,
+      name: auto,
       dom: dom,
       cod: cod,
     ),
     args-spec-parse(dom),
     spec-parse(cod),
-  )
+  ))
 }
 
 // #let ARG-SPEC = 
@@ -249,7 +213,3 @@
     self: (depth: int),
   )
 )
-
-#result-unwrap(spec-parse(RESULT(int)))
-
-#result-unwrap(spec-parse(SPEC))

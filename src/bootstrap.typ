@@ -75,6 +75,23 @@
   }
   if constr-spec == none {
     ok((__tag__: "constr-spec/none"))
+  } else if type(constr-spec) == arguments {
+    if constr-spec.pos().len() == 0 {
+      result-map(
+        fields => (__tag__: "constr-spec/fields", fields: fields),
+        result-all-dict(spec-parse, constr-spec.named()),
+      )
+    } else if constr-spec.pos().len() == 1 and constr-spec.named().len() == 0 {
+      result-map(
+        spec => (
+          __tag__: "constr-spec/fields",
+          fields: (value: spec),
+        ),
+        spec-parse(constr-spec.pos().first()),
+      )
+    } else {
+      err("constructor field specifications must be named or a single positional value spec")
+    }
   } else if type(constr-spec) == dictionary {
     if constr-spec.keys().contains("__tag__") {
       if constr-spec.__tag__.starts-with("constr-spec/") {
@@ -116,10 +133,15 @@
 }
 
 #let spec-elim(
+  empty_case: auto,
   builtin: auto,
   any: auto,
+  union_case: auto,
   enum: auto,
   struct: auto,
+  array_case: auto,
+  dictionary_case: auto,
+  function_case: auto,
   fix: auto,
   self: auto,
 ) = spec => {
@@ -141,7 +163,16 @@
   } else if type(spec) == dictionary {
     if spec.keys().contains("__tag__") and spec.__tag__.starts-with("spec/") {
       let tag = spec.remove("__tag__")
-      if tag == "spec/builtin" {
+      if tag == "spec/empty" {
+        if empty_case == auto {
+          panic("missing case: `empty`")
+        }
+        if spec.len() == 0 {
+          empty_case()
+        } else {
+          panic("too many fields in `spec/empty`: " + spec.keys().map(key => "`" + key + "`").join(", "))
+        }
+      } else if tag == "spec/builtin" {
         let _ = spec.remove("name", default: none)
         let value = spec.remove("value")
         if type(value) == type {
@@ -171,6 +202,21 @@
         } else {
           panic("expected dictionary for `spec/enum` constructors, got `" + repr(constrs) + "`")
         }
+      } else if tag == "spec/union" {
+        if union_case == auto {
+          panic("missing case: `union`")
+        }
+        let name = spec.remove("name", default: auto)
+        let elems = spec.remove("elems")
+        if type(elems) == array {
+          if spec.len() == 0 {
+            union_case(name, elems)
+          } else {
+            panic("too many fields in `spec/union`: " + spec.keys().map(key => "`" + key + "`").join(", "))
+          }
+        } else {
+          panic("expected array for `spec/union` elements, got `" + repr(elems) + "`")
+        }
       } else if tag == "spec/struct" {
         let name = spec.remove("name", default: auto)
         let fields = spec.remove("fields")
@@ -183,6 +229,41 @@
           }
         } else {
           panic("expected dictionary for `spec/struct` fields, got `" + repr(fields) + "`")
+        }
+      } else if tag == "spec/array" {
+        if array_case == auto {
+          panic("missing case: `array`")
+        }
+        let name = spec.remove("name", default: auto)
+        let inner = spec.remove("inner")
+        if spec.len() == 0 {
+          array_case(name, inner)
+        } else {
+          panic("too many fields in `spec/array`: " + spec.keys().map(key => "`" + key + "`").join(", "))
+        }
+      } else if tag == "spec/dictionary" {
+        if dictionary_case == auto {
+          panic("missing case: `dictionary`")
+        }
+        let name = spec.remove("name", default: auto)
+        let key = spec.remove("key")
+        let value = spec.remove("value")
+        if spec.len() == 0 {
+          dictionary_case(name, key, value)
+        } else {
+          panic("too many fields in `spec/dictionary`: " + spec.keys().map(key => "`" + key + "`").join(", "))
+        }
+      } else if tag == "spec/function" {
+        if function_case == auto {
+          panic("missing case: `function`")
+        }
+        let name = spec.remove("name", default: auto)
+        let dom = spec.remove("dom")
+        let cod = spec.remove("cod")
+        if spec.len() == 0 {
+          function_case(name, dom, cod)
+        } else {
+          panic("too many fields in `spec/function`: " + spec.keys().map(key => "`" + key + "`").join(", "))
         }
       } else if tag == "spec/fix" {
         if not spec.keys().contains("fun") {
@@ -328,10 +409,14 @@
   } else if type(args-spec) == arguments {
     let pos = result-all(spec-parse, args-spec.pos())
     let named = result-all-dict(spec-parse, args-spec.named())
-    (
-      __tag__: "args-spec/args",
-      pos: pos,
-      named: named,
+    result-map2(
+      (pos, named) => (
+        __tag__: "args-spec/args",
+        pos: pos,
+        named: named,
+      ),
+      pos,
+      named,
     )
   } else {
 
@@ -390,6 +475,14 @@
 
       // otherwise, the spec describes named constructor arguments
     }
+  } else {
+    result-map(
+      spec => (
+        __tag__: "constr-spec/fields",
+        fields: (value: spec),
+      ),
+      spec-parse(constr-spec),
+    )
   }
 }
 
@@ -401,7 +494,13 @@
   } else if type(spec) == dictionary {
     if spec.keys().contains("__tag__") and spec.__tag__.starts-with("spec/") {
       let tag = spec.remove("__tag__")
-      if tag == "spec/builtin" {
+      if tag == "spec/empty" {
+        if spec.len() == 0 {
+          ok((__tag__: "spec/empty"))
+        } else {
+          err("too many fields in `spec/empty`: " + spec.keys().map(key => "`" + key + "`").join(", "))
+        }
+      } else if tag == "spec/builtin" {
         let value = spec.remove("value")
         if type(value) == type {
           if spec.len() == 0 {
@@ -430,6 +529,58 @@
           )
         } else {
           err("expected dictionary for `spec/enum` constructors, got `" + repr(constrs) + "`")
+        }
+      } else if tag == "spec/union" {
+        let name = spec.remove("name", default: auto)
+        let elems = spec.remove("elems")
+        if type(elems) == array {
+          if spec.len() == 0 {
+            result-map(
+              elems => (__tag__: "spec/union", name: name, elems: elems),
+              result-all(spec-parse, elems),
+            )
+          } else {
+            err("too many fields in `spec/union`: " + spec.keys().map(key => "`" + key + "`").join(", "))
+          }
+        } else {
+          err("expected array for `spec/union` elements, got `" + repr(elems) + "`")
+        }
+      } else if tag == "spec/array" {
+        let name = spec.remove("name", default: auto)
+        let inner = spec.remove("inner")
+        if spec.len() == 0 {
+          result-map(
+            inner => (__tag__: "spec/array", name: name, inner: inner),
+            spec-parse(inner),
+          )
+        } else {
+          err("too many fields in `spec/array`: " + spec.keys().map(key => "`" + key + "`").join(", "))
+        }
+      } else if tag == "spec/dictionary" {
+        let name = spec.remove("name", default: auto)
+        let key = spec.remove("key")
+        let value = spec.remove("value")
+        if spec.len() == 0 {
+          result-map2(
+            (key, value) => (__tag__: "spec/dictionary", name: name, key: key, value: value),
+            spec-parse(key),
+            spec-parse(value),
+          )
+        } else {
+          err("too many fields in `spec/dictionary`: " + spec.keys().map(key => "`" + key + "`").join(", "))
+        }
+      } else if tag == "spec/function" {
+        let name = spec.remove("name", default: auto)
+        let dom = spec.remove("dom")
+        let cod = spec.remove("cod")
+        if spec.len() == 0 {
+          result-map2(
+            (dom, cod) => (__tag__: "spec/function", name: name, dom: dom, cod: cod),
+            args-spec-parse-aux(spec-parse, dom),
+            spec-parse(cod),
+          )
+        } else {
+          err("too many fields in `spec/function`: " + spec.keys().map(key => "`" + key + "`").join(", "))
         }
       } else if tag == "spec/fix" {
         if not spec.keys().contains("fun") {

@@ -162,12 +162,12 @@
     if y.__tag__ == "result/ok" {
       return y
     } else if y.__tag__ == "result/err" {
-      errs.insert(str(i), y.msg)
+      errs.push("at index " + str(i) + ": " + y.msg)
     } else {
       panic("invalid result: `" + repr(y) + "`")
     }
   }
-  err("found no result")
+  err("found no result:\n" + errs.join("\n"))
 }
 
 #let result-unwrap(result) = {
