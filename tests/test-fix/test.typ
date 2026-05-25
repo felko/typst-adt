@@ -158,24 +158,6 @@
 #assert.eq(heighted.right.height, 0)
 #assert.eq((heighted.validate)(), ok(heighted))
 
-#let annotate-depth(tree, depth: 0) = (tree.elim)(
-  leaf: value => {
-    let annotated = tree-leaf(value)
-    annotated.insert("height", tree.height)
-    annotated.insert("depth", depth)
-    annotated
-  },
-  node: (left, right) => {
-    let annotated = tree-node(
-      annotate-depth(left, depth: depth + 1),
-      annotate-depth(right, depth: depth + 1),
-    )
-    annotated.insert("height", tree.height)
-    annotated.insert("depth", depth)
-    annotated
-  },
-)
-
 #let annotate-depth(tree) = (tree.rec)(
   leaf: value => depth => depth,
   node: (left, right) => depth => {

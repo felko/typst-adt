@@ -85,14 +85,18 @@
 #let project-constr-args(constr-spec, .. args) = constr-spec-elim(
   none_: {
     let named = strip-value-method-fields(args.named())
+    let annotations = named.remove("__ann__", default: (:))
+    assert(type(annotations) == dictionary, message: "expected `__ann__` to be a dictionary")
     if args.pos().len() != 0 or named.len() != 0 {
       err("expected no arguments, got `" + repr(args) + "`")
     } else {
-      ok((:))
+      ok(annotations)
     }
   },
   fields: field-specs => {
     let (pos, named) = (args.pos(), strip-value-method-fields(args.named()))
+    let annotations = named.remove("__ann__", default: (:))
+    assert(type(annotations) == dictionary, message: "expected `__ann__` to be a dictionary")
     let fields = (:)
     for (field-name, field-spec) in field-specs.pairs() {
       let arg = if named.keys().contains(field-name) {
@@ -117,6 +121,9 @@
     if pos.len() > 0 or named.len() > 0 {
       err("unrecognizd arguments: `" + repr(arguments(.. pos, .. named)) + "`")
     } else {
+      for (ann-name, ann-value) in annotations.pairs() {
+        fields.insert(ann-name, ann-value)
+      }
       ok(fields)
     }
   }
@@ -208,6 +215,48 @@
   }
 }
 
+#let generated-method-field-names = ("validate", "elim", "rec", "annotate")
+
+#let extra-value-fields(constr-spec, value) = {
+  let extras = value
+  let _ = extras.remove("__tag__", default: none)
+  for field-name in generated-method-field-names {
+    let _ = extras.remove(field-name, default: none)
+  }
+  if constr-spec.__tag__ == "constr-spec/fields" {
+    for field-name in constr-spec.fields.keys() {
+      let _ = extras.remove(field-name, default: none)
+    }
+  }
+  extras
+}
+
+#let merge-extra-fields(value, extras) = {
+  if type(value) != dictionary {
+    return value
+  }
+  for (field-name, field-value) in extras.pairs() {
+    if not value.keys().contains(field-name) {
+      value.insert(field-name, field-value)
+    }
+  }
+  value
+}
+
+#let rebuild-with-extra-fields(spec, tag, fields, extras, value) = {
+  if extras.len() == 0 {
+    return value
+  }
+  let rebuilt = (__tag__: tag, .. fields)
+  for (field-name, field-value) in extras.pairs() {
+    rebuilt.insert(field-name, field-value)
+  }
+  if not rebuilt.keys().contains("depth") {
+    rebuilt.insert("depth", value)
+  }
+  attach-ops(spec, rebuilt)
+}
+
 #let generate-enum-rec(spec, constrs) = (rec: (.. cases) => {
   assert(
     cases.pos().len() == 0,
@@ -232,11 +281,19 @@
     }
     let constr-spec = constrs.at(tag)
     let fields = result-unwrap(project-constr(constr-spec, value))
+    let extras = extra-value-fields(constr-spec, value)
+    let finish(result) = {
+      if type(result) == dictionary {
+        merge-extra-fields(result, extras)
+      } else {
+        rebuild-with-extra-fields(spec, tag, fields, extras, result)
+      }
+    }
     let case = cases.at(tag)
     if type(case) != function {
-      return case
+      return finish(case)
     }
-    if constr-spec.__tag__ == "constr-spec/none" {
+    let result = if constr-spec.__tag__ == "constr-spec/none" {
       case()
     } else if constr-spec.__tag__ == "constr-spec/fields" {
       let mapped = (:)
@@ -246,6 +303,11 @@
       case(.. mapped.values())
     } else {
       panic("ill-formed constructor spec: `" + repr(constr-spec) + "`")
+    }
+    if type(result) == function {
+      (.. args) => finish(result(.. args))
+    } else {
+      finish(result)
     }
   }
   go
