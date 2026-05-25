@@ -9,5 +9,8 @@
 
 #let nested = spec-array(spec-array(int))
 #let (intro: nested-intro, elim: nested-elim) = generate(nested)
-#assert.eq(nested-elim(rows => rows.first().len())(nested-intro(((1, 2), (3, 4)))), 2)
+#assert.eq(
+  nested-elim(rows => rows.first().len())(nested-intro(((1, 2), (3, 4)))),
+  2,
+)
 

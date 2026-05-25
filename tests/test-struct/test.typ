@@ -18,5 +18,13 @@
 #assert.eq(pair(2, 3).left, 2)
 #assert.eq(pair(left: 4, right: 5).right, 5)
 #assert.eq(pair-elim((left, right) => left * 10 + right)(pair(6, 7)), 67)
-#assert(result-is-err(validate-constr((__tag__: "constr-spec/fields", fields: PAIR.fields), 1)))
-#assert(result-is-err(validate-constr((__tag__: "constr-spec/fields", fields: PAIR.fields), 1, 2, 3)))
+#assert(result-is-err(validate-constr(
+  (__tag__: "constr-spec/fields", fields: PAIR.fields),
+  1,
+)))
+#assert(result-is-err(validate-constr(
+  (__tag__: "constr-spec/fields", fields: PAIR.fields),
+  1,
+  2,
+  3,
+)))

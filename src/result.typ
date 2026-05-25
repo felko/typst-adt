@@ -5,21 +5,21 @@
     ok: (
       __tag__: "constr-spec/fields",
       fields: (
-        value: T
-      )
+        value: T,
+      ),
     ),
     err: (
       __tag__: "constr-spec/fields",
       fields: (
-        msg: (__tag__: "spec/builtin", value: str)
-      )
+        msg: (__tag__: "spec/builtin", value: str),
+      ),
     ),
-  )
+  ),
 )
 
 #let ok(x) = (
   __tag__: "result/ok",
-  value: x
+  value: x,
 )
 
 #let err(e) = (
@@ -27,10 +27,10 @@
   msg: str(e),
 )
 
-#let result-elim(.. args) = {
+#let result-elim(..args) = {
   assert(
     args.pos().len() == 0,
-    message: "expected no positional arguments"
+    message: "expected no positional arguments",
   )
   let cases = args.named()
   if not cases.keys().contains("ok") and not cases.keys().contains("err") {
@@ -40,12 +40,15 @@
   } else if not cases.keys().contains("err") {
     panic("missing case: `err`")
   }
-  let (ok: ok-case, err: err-case, .. cases) = cases
+  let (ok: ok-case, err: err-case, ..cases) = cases
   if type(ok-case) != function {
     ok-case = _ => ok-case
   }
   if cases.len() > 0 {
-    panic("too many cases: " + cases.pairs().map(((k, v)) => "`" + k + "`").join(", "))
+    panic(
+      "too many cases: "
+        + cases.pairs().map(((k, v)) => "`" + k + "`").join(", "),
+    )
   }
   if type(err-case) != function {
     err-case = _ => err-case
@@ -69,14 +72,14 @@
 #let result-map2(f, result1, result2) = result-elim(
   ok: value1 => result-elim(
     ok: value2 => ok(f(value1, value2)),
-    err: err
+    err: err,
   )(result2),
   err: err,
 )(result1)
 
 #let result-or-else(result1, result2) = result-elim(
   ok: ok,
-  err: result2
+  err: result2,
 )(result1)
 
 #let result-and-then(result, cont) = {
@@ -110,8 +113,8 @@
   pairs => pairs.to-dict(),
   result-all(
     ((k, v)) => result-map(w => (k, w), f(v)),
-    xs.pairs()
-  )
+    xs.pairs(),
+  ),
 )
 
 #let result-zip(f, xs, ys) = {
@@ -143,15 +146,29 @@
   }
 
   if missing-left.len() > 0 and missing-right.len() > 0 {
-    err("missing " + missing-left.map(k => "`" + k + "`").join(", ") + " from the left and " + missing-right.map(k => "`" + k + "`").join(", ") + " from the right")
+    err(
+      "missing "
+        + missing-left.map(k => "`" + k + "`").join(", ")
+        + " from the left and "
+        + missing-right.map(k => "`" + k + "`").join(", ")
+        + " from the right",
+    )
   } else if missing-left.len() > 0 {
-    err("missing " + missing-left.map(k => "`" + k + "`").join(", ") + " from the left")
+    err(
+      "missing "
+        + missing-left.map(k => "`" + k + "`").join(", ")
+        + " from the left",
+    )
   } else if missing-right.len() > 0 {
-    err("missing " + missing-right.map(k => "`" + k + "`").join(", ") + " from the right")
+    err(
+      "missing "
+        + missing-right.map(k => "`" + k + "`").join(", ")
+        + " from the right",
+    )
   } else {
     result-all-dict(
       ((vx, vy)) => f(vx, vy),
-      zipped
+      zipped,
     )
   }
 }

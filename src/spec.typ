@@ -4,7 +4,7 @@
 #let spec-builtin(type_) = {
   assert(
     type(type_) == type,
-    message: "expected type, got " + repr(type(type_))
+    message: "expected type, got " + repr(type(type_)),
   )
   (
     __tag__: "spec/builtin",
@@ -34,7 +34,7 @@
   __tag__: "spec/empty",
 )
 
-#let spec-enum(__name__: auto, .. args) = {
+#let spec-enum(__name__: auto, ..args) = {
   assert(
     args.pos().len() == 0,
     message: "expected no positional argument",
@@ -54,14 +54,20 @@
   if errs.len() == 1 {
     let (constr-name, constr-err-msg) = errs.pairs().first()
     panic(
-      "invalid constructor specification for enum type in `" + constr-name + "`: " + constr-err-msg
+      "invalid constructor specification for enum type in `"
+        + constr-name
+        + "`: "
+        + constr-err-msg,
     )
   } else if errs.len() > 1 {
     panic(
-      "invalid constructor specifications for enum type:\n" +
-      errs.pairs().map(((constr-name, constr-err-msg)) =>
-        "  · In `" + constr-name + "`: " + constr-err-msg
-      ).join("\n")
+      "invalid constructor specifications for enum type:\n"
+        + errs
+          .pairs()
+          .map(((constr-name, constr-err-msg)) => (
+            "  · In `" + constr-name + "`: " + constr-err-msg
+          ))
+          .join("\n"),
     )
   }
   (
@@ -71,10 +77,10 @@
   )
 }
 
-#let spec-struct(__name__: auto, .. args) = {
+#let spec-struct(__name__: auto, ..args) = {
   assert(
     args.pos().len() == 0,
-    message: "unexpected arguments: " + repr(arguments(.. args.pos())),
+    message: "unexpected arguments: " + repr(arguments(..args.pos())),
   )
   let fields = (:)
   let errs = (:)
@@ -91,14 +97,20 @@
   if errs.len() == 1 {
     let (constr-name, constr-err-msg) = errs.pairs().first()
     panic(
-      "invalid field specification for enum type in `" + constr-name + "`: " + constr-err-msg
+      "invalid field specification for enum type in `"
+        + constr-name
+        + "`: "
+        + constr-err-msg,
     )
   } else if errs.len() > 1 {
     panic(
-      "invalid field specifications for enum type:\n" +
-      errs.pairs().map(((constr-name, constr-err-msg)) =>
-        "  · In `" + constr-name + "`: " + constr-err-msg
-      ).join("\n")
+      "invalid field specifications for enum type:\n"
+        + errs
+          .pairs()
+          .map(((constr-name, constr-err-msg)) => (
+            "  · In `" + constr-name + "`: " + constr-err-msg
+          ))
+          .join("\n"),
     )
   }
   (
@@ -154,12 +166,15 @@
   }
 }
 
-#let spec-union(__name__: auto, .. args) = {
+#let spec-union(__name__: auto, ..args) = {
   assert(
     args.named().len() == 0,
-    message: "unexpected arguments: " + repr(arguments(.. args.named())),
+    message: "unexpected arguments: " + repr(arguments(..args.named())),
   )
-  let unioned = args.pos().map(spec => result-unwrap(spec-parse(spec))).fold(spec-empty, spec-union2)
+  let unioned = args
+    .pos()
+    .map(spec => result-unwrap(spec-parse(spec)))
+    .fold(spec-empty, spec-union2)
   unioned.name = __name__
   unioned
 }
@@ -189,7 +204,7 @@
   ))
 }
 
-#let spec-function(.. dom) = cod => {
+#let spec-function(..dom) = cod => {
   result-unwrap(result-map2(
     (dom, cod) => (
       __tag__: "spec/function",
@@ -206,23 +221,29 @@
 
 #let ARGS-SPEC(T) = spec-enum(
   __name__: "args-spec(" + spec-to-string(T) + ")",
-  .. (
+  ..(
     ("none", none),
-    ("args", (
-      pos: spec-array(T),
-      named: spec-dictionary(str, T),
-    )),
-  ).to-dict()
+    (
+      "args",
+      (
+        pos: spec-array(T),
+        named: spec-dictionary(str, T),
+      ),
+    ),
+  ).to-dict(),
 )
 
 #let CONSTR-SPEC(T) = spec-enum(
   __name__: "constr-spec(" + spec-to-string(T) + ")",
-  .. (
+  ..(
     ("none", none),
-    ("fields", (
-      fields: spec-dictionary(str, T),
-    )),
-  ).to-dict()
+    (
+      "fields",
+      (
+        fields: spec-dictionary(str, T),
+      ),
+    ),
+  ).to-dict(),
 )
 
 #let SPEC = spec-fix(
@@ -240,5 +261,5 @@
     function: (name: SPEC-NAME, dom: ARGS-SPEC(self), cod: self),
     fix: (name: str, fun: spec-function(self)(self)),
     self: (depth: int),
-  )
+  ),
 )

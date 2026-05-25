@@ -27,7 +27,11 @@
   spec-fix(
     __name__: "list(" + spec-to-string(T) + ")",
     self => spec-enum(
-      __name__: "list.base(" + spec-to-string(T) + ", " + spec-to-string(self) + ")",
+      __name__: "list.base("
+        + spec-to-string(T)
+        + ", "
+        + spec-to-string(self)
+        + ")",
       nil: none,
       cons: (head: T, tail: self),
     ),
@@ -50,7 +54,11 @@
 #let one-two = list-cons(1, list-cons(2, list-nil))
 #assert.eq(list-nil.__tag__, "nil")
 #assert.eq(list-cons(head: 1, tail: list-nil).head, 1)
-#assert.eq(validate(LIST(int), one-two), ok((__tag__: "cons", head: 1, tail: (__tag__: "cons", head: 2, tail: (__tag__: "nil")))))
+#assert.eq(validate(LIST(int), one-two), ok((
+  __tag__: "cons",
+  head: 1,
+  tail: (__tag__: "cons", head: 2, tail: (__tag__: "nil")),
+)))
 #assert.eq(list-head-field(one-two), 1)
 #assert.eq(list-tail-field(one-two).head, 2)
 
@@ -59,10 +67,13 @@
   cons: (head, tail) => head,
 )
 #assert.eq(list-head(one-two), 1)
-#assert.eq((one-two.elim)(
-  nil: none,
-  cons: (head, tail) => head,
-), 1)
+#assert.eq(
+  (one-two.elim)(
+    nil: none,
+    cons: (head, tail) => head,
+  ),
+  1,
+)
 
 #let list-len = list-rec(
   nil: 0,
@@ -70,17 +81,20 @@
 )
 #assert.eq(list-len(list-nil), 0)
 #assert.eq(list-len(one-two), 2)
-#assert.eq((one-two.rec)(
-  nil: 0,
-  cons: (head, tail-len) => tail-len + 1,
-), 2)
+#assert.eq(
+  (one-two.rec)(
+    nil: 0,
+    cons: (head, tail-len) => tail-len + 1,
+  ),
+  2,
+)
 
 #let list-append(l1, l2) = list-rec(
   nil: l2,
   cons: list-cons,
 )(l1)
 
-#let list(.. args) = {
+#let list(..args) = {
   let xs = list-nil
   for elem in args.pos().rev() {
     xs = list-cons(elem, xs)
@@ -98,10 +112,13 @@
 
 #assert.eq(sized.size, 2)
 #assert.eq(sized.tail.size, 1)
-#assert.eq((sized.elim)(
-  nil: 0,
-  cons: (head, tail) => head + tail.size,
-), 2)
+#assert.eq(
+  (sized.elim)(
+    nil: 0,
+    cons: (head, tail) => head + tail.size,
+  ),
+  2,
+)
 
 #let sized-and-summed = (list(1, 2).annotate)(
   __ann__: (size: int, sum: int),
@@ -127,7 +144,11 @@
   spec-fix(
     __name__: "tree(" + spec-to-string(T) + ")",
     self => spec-enum(
-      __name__: "tree.base(" + spec-to-string(T) + ", " + spec-to-string(self) + ")",
+      __name__: "tree.base("
+        + spec-to-string(T)
+        + ", "
+        + spec-to-string(self)
+        + ")",
       leaf: T,
       node: (left: self, right: self),
     ),
@@ -149,7 +170,9 @@
 #let heighted = (tree.annotate)(
   __ann__: (height: int),
   leaf: value => (height: 0),
-  node: (left, right) => (height: max2(left.height, right.height) + 1),
+  node: (left, right) => {
+    (height: max2(left.height, right.height) + 1)
+  },
 )
 
 #assert.eq(heighted.height, 2)
@@ -179,7 +202,10 @@
 #assert.eq(heighted-and-depthed.left.left.depth, 2)
 #assert.eq(heighted-and-depthed.right.height, 0)
 #assert.eq(heighted-and-depthed.right.depth, 1)
-#assert.eq((heighted-and-depthed.elim)(
-  leaf: value => value,
-  node: (left, right) => left.left.value,
-), "a")
+#assert.eq(
+  (heighted-and-depthed.elim)(
+    leaf: value => value,
+    node: (left, right) => left.left.value,
+  ),
+  "a",
+)

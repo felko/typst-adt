@@ -21,7 +21,13 @@
 #let NAMED = spec-function(left: int, right: int)(int)
 #let (intro: named-add, elim: apply-named-add) = generate(NAMED)
 #assert.eq(named-add((left: 0, right: 0) => left + right)(left: 2, right: 3), 5)
-#assert.eq(apply-named-add(named-add((left: 0, right: 0) => left * right))(left: 4, right: 5), 20)
+#assert.eq(
+  apply-named-add(named-add((left: 0, right: 0) => left * right))(
+    left: 4,
+    right: 5,
+  ),
+  20,
+)
 #assert(result-is-err(validate-args(NAMED.dom, left: 1)))
 #assert(result-is-err(validate-args(NAMED.dom, left: 1, right: "bad")))
 
