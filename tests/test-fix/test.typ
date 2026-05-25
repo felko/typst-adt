@@ -119,3 +119,85 @@
 #assert.eq(sized-and-summed.tail.size, 1)
 #assert.eq(sized-and-summed.tail.sum, 2)
 #assert.eq((sized-and-summed.validate)(), ok(sized-and-summed))
+
+#let max2(x, y) = if x > y { x } else { y }
+
+#let TREE(T) = {
+  T = result-unwrap(spec-parse(T))
+  spec-fix(
+    __name__: "tree(" + spec-to-string(T) + ")",
+    self => spec-enum(
+      __name__: "tree.base(" + spec-to-string(T) + ", " + spec-to-string(self) + ")",
+      leaf: T,
+      node: (left: self, right: self),
+    ),
+  )
+}
+
+#let (
+  intro: (
+    leaf: tree-leaf,
+    node: tree-node,
+  ),
+) = generate(TREE(str))
+
+#let tree = tree-node(
+  tree-node(tree-leaf("a"), tree-leaf("b")),
+  tree-leaf("c"),
+)
+
+#let heighted = (tree.annotate)(
+  __ann__: (height: int),
+  leaf: value => (height: 0),
+  node: (left, right) => (height: max2(left.height, right.height) + 1),
+)
+
+#assert.eq(heighted.height, 2)
+#assert.eq(heighted.left.height, 1)
+#assert.eq(heighted.left.left.height, 0)
+#assert.eq(heighted.right.height, 0)
+#assert.eq((heighted.validate)(), ok(heighted))
+
+#let annotate-depth(tree, depth: 0) = (tree.elim)(
+  leaf: value => {
+    let annotated = tree-leaf(value)
+    annotated.insert("height", tree.height)
+    annotated.insert("depth", depth)
+    annotated
+  },
+  node: (left, right) => {
+    let annotated = tree-node(
+      annotate-depth(left, depth: depth + 1),
+      annotate-depth(right, depth: depth + 1),
+    )
+    annotated.insert("height", tree.height)
+    annotated.insert("depth", depth)
+    annotated
+  },
+)
+
+#let annotate-depth(tree) = (tree.rec)(
+  leaf: value => depth => depth,
+  node: (left, right) => depth => {
+    tree-node(
+      __ann__: (depth: depth),
+      left(depth + 1),
+      right(depth + 1),
+    )
+  },
+)(0)
+
+#let heighted-and-depthed = annotate-depth(heighted)
+
+#assert.eq(heighted-and-depthed.height, 2)
+#assert.eq(heighted-and-depthed.depth, 0)
+#assert.eq(heighted-and-depthed.left.height, 1)
+#assert.eq(heighted-and-depthed.left.depth, 1)
+#assert.eq(heighted-and-depthed.left.left.height, 0)
+#assert.eq(heighted-and-depthed.left.left.depth, 2)
+#assert.eq(heighted-and-depthed.right.height, 0)
+#assert.eq(heighted-and-depthed.right.depth, 1)
+#assert.eq((heighted-and-depthed.elim)(
+  leaf: value => value,
+  node: (left, right) => left.left.value,
+), "a")

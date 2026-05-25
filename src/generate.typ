@@ -68,6 +68,60 @@
   value
 }
 
+#let spec-is-fix(spec) = spec-elim(
+  empty_case: () => false,
+  builtin: type_ => false,
+  any: () => false,
+  union_case: (name, elems) => false,
+  enum: (name, constrs) => false,
+  struct: (name, fields) => false,
+  array_case: (name, inner) => false,
+  dictionary_case: (name, key, value) => false,
+  function_case: (name, dom, cod) => false,
+  fix: (name, fun) => true,
+  self: depth => false,
+)(spec)
+
+#let project-constr-args(constr-spec, .. args) = constr-spec-elim(
+  none_: {
+    let named = strip-value-method-fields(args.named())
+    if args.pos().len() != 0 or named.len() != 0 {
+      err("expected no arguments, got `" + repr(args) + "`")
+    } else {
+      ok((:))
+    }
+  },
+  fields: field-specs => {
+    let (pos, named) = (args.pos(), strip-value-method-fields(args.named()))
+    let fields = (:)
+    for (field-name, field-spec) in field-specs.pairs() {
+      let arg = if named.keys().contains(field-name) {
+        named.remove(field-name)
+      } else if pos.len() == 0 {
+        return err("not enough arguments: `" + repr(args) + "`")
+      } else {
+        let (arg, .. new-pos) = pos
+        pos = new-pos
+        arg
+      }
+      if spec-is-fix(field-spec) {
+        fields.insert(field-name, arg)
+      } else {
+        let result = validate(field-spec, arg)
+        if result-is-err(result) {
+          return result
+        }
+        fields.insert(field-name, result.value)
+      }
+    }
+    if pos.len() > 0 or named.len() > 0 {
+      err("unrecognizd arguments: `" + repr(arguments(.. pos, .. named)) + "`")
+    } else {
+      ok(fields)
+    }
+  }
+)(constr-spec)
+
 #let generate-constr(tag, constr-spec) = constr-spec-elim(
   none_: if tag == none { attach-ops(auto, (:)) } else { attach-ops(auto, (__tag__: tag)) },
   fields: _ => {
@@ -87,11 +141,11 @@
   none_: if tag == none { attach-ops(spec, (:), ops: ops) } else { attach-ops(spec, (__tag__: tag), ops: ops) },
   fields: _ => {
     if tag == none {
-      (.. args) => attach-ops(spec, result-unwrap(validate-constr(constr-spec, .. args)), ops: ops)
+      (.. args) => attach-ops(spec, result-unwrap(project-constr-args(constr-spec, .. args)), ops: ops)
     } else {
       (.. args) => attach-ops(spec, (
           __tag__: tag,
-          .. result-unwrap(validate-constr(constr-spec, .. args))
+          .. result-unwrap(project-constr-args(constr-spec, .. args))
         ),
         ops: ops,
       )
@@ -123,20 +177,6 @@
   let args = result-unwrap(validate-args(dom, .. args))
   result-unwrap(validate(cod, value(.. args)))
 }
-
-#let spec-is-fix(spec) = spec-elim(
-  empty_case: () => false,
-  builtin: type_ => false,
-  any: () => false,
-  union_case: (name, elems) => false,
-  enum: (name, constrs) => false,
-  struct: (name, fields) => false,
-  array_case: (name, inner) => false,
-  dictionary_case: (name, key, value) => false,
-  function_case: (name, dom, cod) => false,
-  fix: (name, fun) => true,
-  self: depth => false,
-)(spec)
 
 #let project-constr(constr-spec, value) = constr-spec-elim(
   none_: ok((:)),
