@@ -1,0 +1,23 @@
+[package]
+name = "meta"
+version = "0.1.0"
+compiler = "0.14.2"
+entrypoint = "src/lib.typ"
+authors = ["felko"]
+license = "MIT"
+description = "An implementation of algebraic datatypes"
+repository = "https://github.com/felko/typst-adt"
+categories = ["model", "scripting"]
+keywords = [
+	"algebraic",
+	"type",
+	"typing",
+	"validation",
+	"specification",
+	"typechecking",
+	"metaprogramming",
+	"recursive",
+	"datatype",
+	"data",
+]
+exclude = ["docs/", "tests/"]
