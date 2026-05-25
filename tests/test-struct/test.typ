@@ -2,7 +2,7 @@
 
 #let UNIT = spec-struct(__name__: "UNIT")
 #let (intro: unit, elim: unit-elim) = generate(UNIT)
-#assert.eq(unit(), (:))
+#assert.eq((unit().validate)(), ok(unit()))
 #assert.eq(unit-elim(() => "unit")(unit()), "unit")
 #assert.eq(unit-elim("constant")(unit()), "constant")
 
@@ -15,9 +15,8 @@
 
 #let PAIR = spec-struct(__name__: "PAIR", left: int, right: int)
 #let (intro: pair, elim: pair-elim) = generate(PAIR)
-#assert.eq(pair(2, 3), (left: 2, right: 3))
-#assert.eq(pair(left: 4, right: 5), (left: 4, right: 5))
+#assert.eq(pair(2, 3).left, 2)
+#assert.eq(pair(left: 4, right: 5).right, 5)
 #assert.eq(pair-elim((left, right) => left * 10 + right)(pair(6, 7)), 67)
 #assert(result-is-err(validate-constr((__tag__: "constr-spec/fields", fields: PAIR.fields), 1)))
 #assert(result-is-err(validate-constr((__tag__: "constr-spec/fields", fields: PAIR.fields), 1, 2, 3)))
-

@@ -17,8 +17,8 @@
   elim: option-elim,
 ) = generate(OPTION(int))
 
-#assert.eq(option-nothing, (__tag__: "nothing"))
-#assert.eq(option-some(4), (__tag__: "some", value: 4))
+#assert.eq(option-nothing.__tag__, "nothing")
+#assert.eq(option-some(4).value, 4)
 #assert.eq(option-elim(nothing: 0, some: value => value)(option-nothing), 0)
 #assert.eq(option-elim(nothing: 0, some: value => value)(option-some(5)), 5)
 
@@ -48,17 +48,21 @@
 ) = generate(LIST(int))
 
 #let one-two = list-cons(1, list-cons(2, list-nil))
-#assert.eq(list-nil, (__tag__: "nil"))
-#assert.eq(list-cons(head: 1, tail: list-nil), (__tag__: "cons", head: 1, tail: list-nil))
-#assert.eq(validate(LIST(int), one-two), ok(one-two))
+#assert.eq(list-nil.__tag__, "nil")
+#assert.eq(list-cons(head: 1, tail: list-nil).head, 1)
+#assert.eq(validate(LIST(int), one-two), ok((__tag__: "cons", head: 1, tail: (__tag__: "cons", head: 2, tail: (__tag__: "nil")))))
 #assert.eq(list-head-field(one-two), 1)
-#assert.eq(list-tail-field(one-two), list-cons(2, list-nil))
+#assert.eq(list-tail-field(one-two).head, 2)
 
 #let list-head = list-elim(
   nil: none,
   cons: (head, tail) => head,
 )
 #assert.eq(list-head(one-two), 1)
+#assert.eq((one-two.elim)(
+  nil: none,
+  cons: (head, tail) => head,
+), 1)
 
 #let list-len = list-rec(
   nil: 0,
@@ -66,6 +70,10 @@
 )
 #assert.eq(list-len(list-nil), 0)
 #assert.eq(list-len(one-two), 2)
+#assert.eq((one-two.rec)(
+  nil: 0,
+  cons: (head, tail-len) => tail-len + 1,
+), 2)
 
 #let list-append(l1, l2) = list-rec(
   nil: l2,
@@ -81,3 +89,33 @@
 }
 
 #assert.eq(list-append(list(1, 2), list(3)), list(1, 2, 3))
+
+#let sized = (list(1, 2).annotate)(
+  __ann__: (size: int),
+  nil: (size: 0),
+  cons: (head, tail) => (size: tail.size + 1),
+)
+
+#assert.eq(sized.size, 2)
+#assert.eq(sized.tail.size, 1)
+#assert.eq((sized.elim)(
+  nil: 0,
+  cons: (head, tail) => head + tail.size,
+), 2)
+
+#let sized-and-summed = (list(1, 2).annotate)(
+  __ann__: (size: int, sum: int),
+  nil: (size: 0, sum: 0),
+  cons: (head, (size: tail-size, sum: tail-sum)) => (
+    size: tail-size + 1,
+    sum: tail-sum + head,
+  ),
+)
+
+#assert.eq((sized-and-summed.validate)(), ok(sized-and-summed))
+
+#assert.eq(sized-and-summed.size, 2)
+#assert.eq(sized-and-summed.sum, 3)
+#assert.eq(sized-and-summed.tail.size, 1)
+#assert.eq(sized-and-summed.tail.sum, 2)
+#assert.eq((sized-and-summed.validate)(), ok(sized-and-summed))

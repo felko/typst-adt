@@ -16,10 +16,10 @@
   elim: token-elim,
 ) = generate(TOKEN)
 
-#assert.eq(token-eof, (__tag__: "eof"))
-#assert.eq(token-lit(3), (__tag__: "lit", value: 3))
-#assert.eq(token-span(1, 4), (__tag__: "span", start: 1, end: 4))
-#assert.eq(token-span(start: 2, end: 5), (__tag__: "span", start: 2, end: 5))
+#assert.eq(token-eof.__tag__, "eof")
+#assert.eq(token-lit(3).value, 3)
+#assert.eq(token-span(1, 4).start, 1)
+#assert.eq(token-span(start: 2, end: 5).end, 5)
 
 #let token-kind = token-elim(
   eof: "eof",

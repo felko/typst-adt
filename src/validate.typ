@@ -1,6 +1,17 @@
 #import "result.typ": *
 #import "spec.typ": *
 
+#let value-method-fields = ("validate", "elim", "rec", "annotate")
+
+#let strip-value-method-fields(value) = {
+  if type(value) == dictionary {
+    for field in value-method-fields {
+      let _ = value.remove(field, default: none)
+    }
+  }
+  value
+}
+
 #let validate-args-aux(validate, args-spec, .. args) = args-spec-elim(
   none_: {
     if args.pos().len() != 0 or args.named().len() != 0 {
@@ -56,7 +67,8 @@
 // validate-constr-aux(T)(FUNCTION(T)(RESULT(T)), CONSTR-SPEC, .. ) → DICTIONARY(str, )
 #let validate-constr-aux(validate, constr-spec, .. args) = constr-spec-elim(
   none_: {
-    if args.pos().len() != 0 or args.named().len() != 0 {
+    let named = strip-value-method-fields(args.named())
+    if args.pos().len() != 0 or named.len() != 0 {
       err("expected no arguments, got `" + repr(args) + "`")
     } else {
       ok((:))
@@ -64,6 +76,7 @@
   },
   fields: fields-spec => {
     let (pos, named) = (args.pos(), args.named())
+    named = strip-value-method-fields(named)
     let fields = (:)
     for (field-name, field-spec) in fields-spec.pairs() {
       let arg = if named.keys().contains(field-name) {
@@ -149,6 +162,7 @@
     if type(value) != dictionary {
       err("expected dictionary, got `" + str(type(value)) + "`")
     } else {
+      let value = strip-value-method-fields(value)
       result-map(
         pairs => pairs.to-dict(),
         result-all(
