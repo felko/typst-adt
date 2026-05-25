@@ -1,10 +1,12 @@
 #import "result.typ": *
 
+// Removes and returns an enum value's constructor tag.
 #let enum-pop-tag(value) = {
   let tag = value.remove("__tag__").split("/").last()
   (value, tag)
 }
 
+// Dispatches on an argument spec.
 #let args-spec-elim(
   none_: auto,
   args: auto,
@@ -68,6 +70,7 @@
   }
 }
 
+// Dispatches on a constructor spec.
 #let constr-spec-elim(
   none_: auto,
   fields: auto,
@@ -146,6 +149,7 @@
   }
 }
 
+// Dispatches on a spec kind.
 #let spec-elim(
   empty_case: auto,
   builtin: auto,
@@ -352,6 +356,7 @@
   }
 }
 
+// Renders an argument spec with a custom spec renderer.
 #let args-spec-to-string-aux(spec-to-string, args-spec) = {
   if args-spec.__tag__ == "args-spec/none" {
     ""
@@ -374,6 +379,7 @@
   }
 }
 
+// Renders a constructor spec with a custom spec renderer.
 #let constr-spec-to-string-aux(spec-to-string, constr-spec) = {
   if constr-spec.__tag__ == "constr-spec/none" {
     ""
@@ -395,6 +401,7 @@
   }
 }
 
+// Renders a spec as a compact string.
 #let spec-to-string(spec, prec: 0, depth: 0) = {
   let existing-name = spec.at("name", default: spec.at(
     "__name__",
@@ -470,9 +477,11 @@
   )(spec)
 }
 
+// Renders an argument spec as a compact string.
 #let args-spec-to-string = args-spec-to-string-aux.with(spec-to-string)
 
 
+// Parses shorthand argument specs into explicit argument specs.
 #let args-spec-parse-aux(spec-parse, args-spec) = {
   if args-spec == none {
     ok((__tag__: "args-spec/none"))
@@ -542,6 +551,7 @@
   } else {}
 }
 
+// Parses shorthand constructor specs into explicit constructor specs.
 #let constr-spec-parse-aux(spec-parse, constr-spec) = {
   if constr-spec == none {
     ok((__tag__: "constr-spec/none"))
@@ -614,6 +624,7 @@
   }
 }
 
+// Parses shorthand specs into explicit specs.
 #let spec-parse(spec) = {
   if type(spec) == type {
     ok((__tag__: "spec/builtin", name: str(spec), value: spec))
@@ -791,5 +802,8 @@
 }
 
 
+// Parses an argument spec using the default spec parser.
 #let args-spec-parse = args-spec-parse-aux.with(spec-parse)
+
+// Parses a constructor spec using the default spec parser.
 #let constr-spec-parse = constr-spec-parse-aux.with(spec-parse)

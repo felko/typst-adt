@@ -1,8 +1,10 @@
 #import "result.typ": *
 #import "spec.typ": *
 
+// Generated method fields ignored during value validation.
 #let value-method-fields = ("validate", "elim", "rec", "annotate")
 
+// Removes generated method fields from dictionary values.
 #let strip-value-method-fields(value) = {
   if type(value) == dictionary {
     for field in value-method-fields {
@@ -12,6 +14,7 @@
   value
 }
 
+// Validates function call arguments against an argument spec.
 #let validate-args-aux(validate, args-spec, ..args) = args-spec-elim(
   none_: {
     if args.pos().len() != 0 or args.named().len() != 0 {
@@ -82,6 +85,7 @@
 )(args-spec)
 
 // validate-constr-aux(T)(FUNCTION(T)(RESULT(T)), CONSTR-SPEC, .. ) → DICTIONARY(str, )
+// Validates constructor arguments against a constructor spec.
 #let validate-constr-aux(validate, constr-spec, ..args) = constr-spec-elim(
   none_: {
     let named = strip-value-method-fields(args.named())
@@ -120,6 +124,7 @@
   },
 )(constr-spec)
 
+// Validates a value against a spec.
 #let validate(spec, value) = spec-elim(
   empty_case: () => {
     err("empty type has no values")
@@ -217,5 +222,8 @@
   },
 )(spec)
 
+// Validates function call arguments with the default validator.
 #let validate-args = validate-args-aux.with(validate)
+
+// Validates constructor arguments with the default validator.
 #let validate-constr = validate-constr-aux.with(validate)
