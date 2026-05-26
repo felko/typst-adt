@@ -4,9 +4,16 @@
 /// Validates fields on generated values without stripping methods.
 ///
 /// Used by runtime validation for generated constructors.
+/// -> RESULT(dictionary)
 #let validate-runtime-constr(
+  /// Runtime validator to use recursively.
+  /// -> function
   validate-runtime,
+  /// Constructor spec.
+  /// -> constr-spec
   constr-spec,
+  /// Value to validate.
+  /// -> dictionary
   value,
 ) = constr-spec-elim(
   none_: ok(value),
@@ -27,7 +34,15 @@
 /// Validates generated values that may carry attached methods.
 ///
 /// Returns the original value on success so method fields are preserved.
-#let validate-runtime(spec, value) = spec-elim(
+/// -> RESULT(any)
+#let validate-runtime(
+  /// Spec to validate against.
+  /// -> spec
+  spec,
+  /// Generated value to validate.
+  /// -> any
+  value,
+) = spec-elim(
   empty_case: () => err("empty type has no values"),
   builtin: type_ => result-map(_ => value, validate(spec, value)),
   any: () => ok(value),
@@ -68,7 +83,18 @@
 /// Attaches generated methods to dictionary values.
 ///
 /// Non-dictionary values are returned unchanged.
-#let attach-ops(spec, value, ops: (:)) = {
+/// -> any
+#let attach-ops(
+  /// Spec used for runtime validation.
+  /// -> spec
+  spec,
+  /// Value to receive methods.
+  /// -> any
+  value,
+  /// Operations to attach.
+  /// -> dictionary(str, function)
+  ops: (:),
+) = {
   if type(value) != dictionary {
     return value
   }
@@ -95,7 +121,12 @@
 }
 
 /// Returns whether a spec is a fixed-point spec.
-#let spec-is-fix(spec) = spec-elim(
+/// -> bool
+#let spec-is-fix(
+  /// Spec to inspect.
+  /// -> spec
+  spec,
+) = spec-elim(
   empty_case: () => false,
   builtin: type_ => false,
   any: () => false,
@@ -113,7 +144,15 @@
 ///
 /// Recursive fields are left as-is so recursive generated values can carry
 /// methods and annotations.
-#let project-constr-args(constr-spec, ..args) = constr-spec-elim(
+/// -> RESULT(dictionary)
+#let project-constr-args(
+  /// Constructor spec.
+  /// -> constr-spec
+  constr-spec,
+  /// Constructor arguments.
+  /// -> arguments
+  ..args
+) = constr-spec-elim(
   none_: {
     let named = strip-value-method-fields(args.named())
     let annotations = named.remove("__ann__", default: (:))
@@ -169,7 +208,15 @@
 /// Builds a raw constructor for a constructor spec.
 ///
 /// Prefer generated constructors from `generate` for user-facing values.
-#let generate-constr(tag, constr-spec) = constr-spec-elim(
+/// -> function | dictionary
+#let generate-constr(
+  /// Constructor tag, or `none` for structs.
+  /// -> str | none
+  tag,
+  /// Constructor spec.
+  /// -> constr-spec
+  constr-spec,
+) = constr-spec-elim(
   none_: if tag == none { attach-ops(auto, (:)) } else {
     attach-ops(auto, (__tag__: tag))
   },
@@ -191,10 +238,19 @@
 /// Builds a constructor that attaches generated methods.
 ///
 /// Used for structs, enums, and recursive enum values.
+/// -> function | dictionary
 #let generate-constr-with-spec(
+  /// Parent spec.
+  /// -> spec
   spec,
+  /// Constructor tag, or `none` for structs.
+  /// -> str | none
   tag,
+  /// Constructor spec.
+  /// -> constr-spec
   constr-spec,
+  /// Operations to attach.
+  /// -> dictionary(str, function)
   ops: (:),
 ) = constr-spec-elim(
   none_: if tag == none { attach-ops(spec, (:), ops: ops) } else {
@@ -223,7 +279,15 @@
 /// Builds an intro function for plain validated values.
 ///
 /// The returned function validates input and attaches available operations.
-#let generate-value-intro(spec, ops: (:)) = value => attach-ops(
+/// -> function
+#let generate-value-intro(
+  /// Spec to validate against.
+  /// -> spec
+  spec,
+  /// Operations to attach.
+  /// -> dictionary(str, function)
+  ops: (:),
+) = value => attach-ops(
   spec,
   result-unwrap(validate(spec, value)),
   ops: ops,
@@ -232,7 +296,12 @@
 /// Builds an eliminator for plain validated values.
 ///
 /// The eliminator validates the value before applying the provided function.
-#let generate-value-elim(spec) = f => value => {
+/// -> function
+#let generate-value-elim(
+  /// Spec to validate against.
+  /// -> spec
+  spec,
+) = f => value => {
   let value = result-unwrap(validate(spec, value))
   if type(f) == function {
     f(value)
@@ -244,7 +313,15 @@
 /// Wraps a function with argument and return validation.
 ///
 /// The wrapped function validates call arguments and the return value.
-#let generate-function-intro(dom, cod) = f => {
+/// -> function
+#let generate-function-intro(
+  /// Domain argument spec.
+  /// -> args-spec
+  dom,
+  /// Codomain spec.
+  /// -> spec
+  cod,
+) = f => {
   assert(
     type(f) == function,
     message: "expected function, got `" + str(type(f)) + "`",
@@ -258,7 +335,15 @@
 /// Builds a validated function application eliminator.
 ///
 /// The returned function validates the function value, arguments, and result.
-#let generate-function-elim(dom, cod) = value => (..args) => {
+/// -> function
+#let generate-function-elim(
+  /// Domain argument spec.
+  /// -> args-spec
+  dom,
+  /// Codomain spec.
+  /// -> spec
+  cod,
+) = value => (..args) => {
   let value = result-unwrap(validate(
     (__tag__: "spec/function", name: auto, dom: dom, cod: cod),
     value,
@@ -270,7 +355,15 @@
 /// Projects validated fields out of a constructor value.
 ///
 /// Extra fields and generated methods are ignored.
-#let project-constr(constr-spec, value) = constr-spec-elim(
+/// -> RESULT(dictionary)
+#let project-constr(
+  /// Constructor spec.
+  /// -> constr-spec
+  constr-spec,
+  /// Constructor value.
+  /// -> dictionary
+  value,
+) = constr-spec-elim(
   none_: ok((:)),
   fields: field-specs => {
     let fields = (:)
@@ -293,7 +386,18 @@
 )(constr-spec)
 
 /// Recurses into fields that point back to a fixed-point spec.
-#let generate-rec-field(go, field-spec, value) = {
+/// -> any
+#let generate-rec-field(
+  /// Recursive function.
+  /// -> function
+  go,
+  /// Field spec.
+  /// -> spec
+  field-spec,
+  /// Field value.
+  /// -> any
+  value,
+) = {
   if spec-is-fix(field-spec) {
     go(value)
   } else {
@@ -302,12 +406,21 @@
 }
 
 /// Generated method field names.
+/// -> array(str)
 #let generated-method-field-names = ("validate", "elim", "rec", "annotate")
 
 /// Finds non-spec fields preserved across recursive transforms.
 ///
 /// Used to keep annotations and other extra fields during folds.
-#let extra-value-fields(constr-spec, value) = {
+/// -> dictionary
+#let extra-value-fields(
+  /// Constructor spec.
+  /// -> constr-spec
+  constr-spec,
+  /// Value to inspect.
+  /// -> dictionary
+  value,
+) = {
   let extras = value
   let _ = extras.remove("__tag__", default: none)
   for field-name in generated-method-field-names {
@@ -322,7 +435,15 @@
 }
 
 /// Adds preserved extra fields back to a dictionary value.
-#let merge-extra-fields(value, extras) = {
+/// -> any
+#let merge-extra-fields(
+  /// Value to receive fields.
+  /// -> any
+  value,
+  /// Extra fields.
+  /// -> dictionary
+  extras,
+) = {
   if type(value) != dictionary {
     return value
   }
@@ -337,7 +458,24 @@
 /// Rebuilds a value when recursive folding returns a plain result.
 ///
 /// Preserved extra fields are merged back onto the rebuilt value.
-#let rebuild-with-extra-fields(spec, tag, fields, extras, value) = {
+/// -> any
+#let rebuild-with-extra-fields(
+  /// Parent spec.
+  /// -> spec
+  spec,
+  /// Constructor tag.
+  /// -> str
+  tag,
+  /// Constructor fields.
+  /// -> dictionary
+  fields,
+  /// Extra fields to preserve.
+  /// -> dictionary
+  extras,
+  /// Fold result.
+  /// -> any
+  value,
+) = {
   if extras.len() == 0 {
     return value
   }
@@ -355,7 +493,15 @@
 ///
 /// The generated `rec` function recursively maps self fields before calling
 /// each constructor case.
-#let generate-enum-rec(spec, constrs) = (
+/// -> dictionary(str, function)
+#let generate-enum-rec(
+  /// Recursive enum spec.
+  /// -> spec
+  spec,
+  /// Enum constructors.
+  /// -> dictionary(str, constr-spec)
+  constrs,
+) = (
   rec: (..cases) => {
     assert(
       cases.pos().len() == 0,
@@ -428,7 +574,18 @@
 )
 
 /// Builds constructor functions for every enum constructor.
-#let generate-enum-intros(spec, constrs, ops: (:)) = (
+/// -> dictionary(str, function)
+#let generate-enum-intros(
+  /// Enum spec.
+  /// -> spec
+  spec,
+  /// Enum constructors.
+  /// -> dictionary(str, constr-spec)
+  constrs,
+  /// Operations to attach.
+  /// -> dictionary(str, function)
+  ops: (:),
+) = (
   constrs
     .pairs()
     .map(((constr-name, constr-spec)) => {
@@ -443,7 +600,15 @@
 /// Generates intro helpers for a spec.
 ///
 /// Returns `intro` for most specs and both `intro`/`intros` for enums.
-#let generate-intro(spec, ops: (:)) = spec-elim(
+/// -> dictionary
+#let generate-intro(
+  /// Spec to generate for.
+  /// -> spec
+  spec,
+  /// Operations to attach.
+  /// -> dictionary(str, function)
+  ops: (:),
+) = spec-elim(
   empty_case: () => (:),
   builtin: type_ => (intro: generate-value-intro(spec, ops: ops)),
   any: () => (intro: value => attach-ops(spec, value, ops: ops)),
@@ -492,7 +657,12 @@
 )(spec)
 
 /// Converts a constructor spec to function arguments.
-#let constr-spec-args(constr-spec) = constr-spec-elim(
+/// -> arguments
+#let constr-spec-args(
+  /// Constructor spec.
+  /// -> constr-spec
+  constr-spec,
+) = constr-spec-elim(
   none_: arguments(),
   fields: fields => arguments(..fields),
 )(constr-spec)
@@ -500,7 +670,15 @@
 /// Builds the expected case-function spec for an eliminator.
 ///
 /// `T` is the result spec shared by every case function.
-#let CASES(spec, T) = spec-struct(
+/// -> spec
+#let CASES(
+  /// Spec to build cases for.
+  /// -> spec
+  spec,
+  /// Result spec for each case.
+  /// -> spec
+  T,
+) = spec-struct(
   ..spec-elim(
     empty_case: () => panic("empty specs do not have cases"),
     builtin: type_ => panic("builtin specs do not have cases"),
@@ -528,7 +706,12 @@
 /// Generates eliminators for a spec.
 ///
 /// Enum eliminators require one case per constructor.
-#let generate-elim(spec) = spec-elim(
+/// -> dictionary
+#let generate-elim(
+  /// Spec to generate for.
+  /// -> spec
+  spec,
+) = spec-elim(
   empty_case: () => (:),
   builtin: type_ => (elim: generate-value-elim(spec)),
   struct: (name, fields) => (
@@ -594,7 +777,18 @@
 /// Builds a field accessor for enum values.
 ///
 /// Panics when the current constructor does not provide the requested field.
-#let generate-enum-field(spec, constrs, field-name) = value => {
+/// -> function
+#let generate-enum-field(
+  /// Enum spec.
+  /// -> spec
+  spec,
+  /// Enum constructors.
+  /// -> dictionary(str, constr-spec)
+  constrs,
+  /// Field name to access.
+  /// -> str
+  field-name,
+) = value => {
   if type(value) != dictionary or not value.keys().contains("__tag__") {
     panic("not an enum value: `" + repr(value) + "`")
   }
@@ -614,7 +808,15 @@
 /// Builds field accessors shared across enum constructors.
 ///
 /// Accessors are generated for the union of all constructor field names.
-#let generate-enum-fields(spec, constrs) = {
+/// -> dictionary
+#let generate-enum-fields(
+  /// Enum spec.
+  /// -> spec
+  spec,
+  /// Enum constructors.
+  /// -> dictionary(str, constr-spec)
+  constrs,
+) = {
   let field-names = ()
   for constr-spec in constrs.values() {
     if constr-spec.__tag__ == "constr-spec/fields" {
@@ -633,7 +835,12 @@
 }
 
 /// Generates field accessors for structs and enums.
-#let generate-fields(spec) = spec-elim(
+/// -> dictionary
+#let generate-fields(
+  /// Spec to generate for.
+  /// -> spec
+  spec,
+) = spec-elim(
   empty_case: () => (:),
   builtin: type_ => (:),
   any: () => (:),
@@ -656,7 +863,12 @@
 )(spec)
 
 /// Generates recursive folds for recursive enum specs.
-#let generate-rec(spec) = spec-elim(
+/// -> dictionary
+#let generate-rec(
+  /// Spec to generate for.
+  /// -> spec
+  spec,
+) = spec-elim(
   empty_case: () => (:),
   builtin: type_ => (:),
   any: () => (:),
@@ -685,7 +897,18 @@
 /// Builds recursive annotation for enum specs.
 ///
 /// Each case returns the annotation fields for that constructor.
-#let generate-enum-annotate(spec, constrs, ops: (:)) = (
+/// -> dictionary(str, function)
+#let generate-enum-annotate(
+  /// Enum spec.
+  /// -> spec
+  spec,
+  /// Enum constructors.
+  /// -> dictionary(str, constr-spec)
+  constrs,
+  /// Operations to attach.
+  /// -> dictionary(str, function)
+  ops: (:),
+) = (
   annotate: (..args) => {
     assert(
       args.pos().len() == 0,
@@ -772,7 +995,15 @@
 )
 
 /// Generates annotation helpers for recursive enum specs.
-#let generate-annotate(spec, ops: (:)) = spec-elim(
+/// -> dictionary
+#let generate-annotate(
+  /// Spec to generate for.
+  /// -> spec
+  spec,
+  /// Operations to attach.
+  /// -> dictionary(str, function)
+  ops: (:),
+) = spec-elim(
   empty_case: () => (:),
   builtin: type_ => (:),
   any: () => (:),
@@ -799,7 +1030,12 @@
 )(spec)
 
 /// Placeholder for future visitor generation.
-#let generate-visit(spec) = spec-elim(
+/// -> dictionary
+#let generate-visit(
+  /// Spec to generate for.
+  /// -> spec
+  spec,
+) = spec-elim(
   empty_case: () => (:),
   builtin: type_ => (:),
   any: () => (:),
@@ -817,7 +1053,12 @@
 ///
 /// The returned dictionary may contain `intro`, `intros`, `elim`, `fields`,
 /// `rec`, and `annotate`, depending on the spec kind.
-#let generate(spec) = {
+/// -> dictionary
+#let generate(
+  /// Spec to generate helpers for.
+  /// -> spec
+  spec,
+) = {
   let ops = (:)
   let elim = generate-elim(spec)
   let fields = generate-fields(spec)

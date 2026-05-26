@@ -2,12 +2,18 @@
 #import "spec.typ": *
 
 /// Generated method fields ignored during value validation.
+/// -> array(str)
 #let value-method-fields = ("validate", "elim", "rec", "annotate")
 
 /// Removes generated method fields from a dictionary value.
 ///
 /// Non-dictionary values are returned unchanged.
-#let strip-value-method-fields(value) = {
+/// -> any
+#let strip-value-method-fields(
+  /// Value to strip.
+  /// -> any
+  value,
+) = {
   if type(value) == dictionary {
     for field in value-method-fields {
       let _ = value.remove(field, default: none)
@@ -19,7 +25,18 @@
 /// Validates function call arguments against an argument spec.
 ///
 /// This lower-level variant accepts the recursive validator to use.
-#let validate-args-aux(validate, args-spec, ..args) = args-spec-elim(
+/// -> RESULT(arguments)
+#let validate-args-aux(
+  /// Validator to use recursively.
+  /// -> function
+  validate,
+  /// Argument spec.
+  /// -> args-spec
+  args-spec,
+  /// Arguments to validate.
+  /// -> arguments
+  ..args
+) = args-spec-elim(
   none_: {
     if args.pos().len() != 0 or args.named().len() != 0 {
       err("expected no arguments, got `" + repr(args) + "`")
@@ -91,7 +108,18 @@
 /// Validates constructor arguments against a constructor spec.
 ///
 /// This lower-level variant accepts the recursive validator to use.
-#let validate-constr-aux(validate, constr-spec, ..args) = constr-spec-elim(
+/// -> RESULT(dictionary)
+#let validate-constr-aux(
+  /// Validator to use recursively.
+  /// -> function
+  validate,
+  /// Constructor spec.
+  /// -> constr-spec
+  constr-spec,
+  /// Constructor arguments to validate.
+  /// -> arguments
+  ..args
+) = constr-spec-elim(
   none_: {
     let named = strip-value-method-fields(args.named())
     if args.pos().len() != 0 or named.len() != 0 {
@@ -133,7 +161,15 @@
 ///
 /// Returns `ok(validated-value)` when the value matches the spec, or
 /// `err(message)` otherwise.
-#let validate(spec, value) = spec-elim(
+/// -> RESULT(any)
+#let validate(
+  /// Spec to validate against.
+  /// -> spec
+  spec,
+  /// Value to validate.
+  /// -> any
+  value,
+) = spec-elim(
   empty_case: () => {
     err("empty type has no values")
   },
@@ -233,9 +269,11 @@
 /// Validates function call arguments with the default validator.
 ///
 /// Returns validated Typst `arguments`.
+/// -> function
 #let validate-args = validate-args-aux.with(validate)
 
 /// Validates constructor arguments with the default validator.
 ///
 /// Returns a dictionary of validated fields.
+/// -> function
 #let validate-constr = validate-constr-aux.with(validate)

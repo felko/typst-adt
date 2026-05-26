@@ -1,18 +1,20 @@
 #import "result.typ": *
 
-/// Removes and returns an enum value's constructor tag.
-///
-/// Returns `(value, tag)` where `value` no longer contains `__tag__`.
-#let enum-pop-tag(value) = {
+#let enum-pop-tag(
+  value,
+) = {
   let tag = value.remove("__tag__").split("/").last()
   (value, tag)
 }
 
 /// Dispatches on an argument spec.
-///
-/// Pass `none_:` and `args:` cases. Cases may be functions or constants.
+/// -> spec => any
 #let args-spec-elim(
+  /// Case for no arguments.
+  /// -> function | any | auto
   none_: auto,
+  /// Case for positional and named arguments.
+  /// -> {pos: list(spec), args: }) | any | auto
   args: auto,
 ) = args-spec => {
   if none_ == auto and args == auto {
@@ -77,8 +79,13 @@
 /// Dispatches on a constructor spec.
 ///
 /// Pass `none_:` and `fields:` cases. Cases may be functions or constants.
+/// -> function
 #let constr-spec-elim(
+  /// Case for constructors with no fields.
+  /// -> function | any | auto
   none_: auto,
+  /// Case for constructors with fields.
+  /// -> function | any | auto
   fields: auto,
 ) = constr-spec => {
   if none_ == auto and fields == auto {
@@ -159,17 +166,40 @@
 ///
 /// All spec cases must be provided. This is the central eliminator for spec
 /// values.
+/// -> function
 #let spec-elim(
+  /// Case for `spec-empty`.
+  /// -> function
   empty_case: auto,
+  /// Case for builtin specs.
+  /// -> function
   builtin: auto,
+  /// Case for `spec-any`.
+  /// -> function
   any: auto,
+  /// Case for union specs.
+  /// -> function
   union_case: auto,
+  /// Case for enum specs.
+  /// -> function
   enum: auto,
+  /// Case for struct specs.
+  /// -> function
   struct: auto,
+  /// Case for array specs.
+  /// -> function
   array_case: auto,
+  /// Case for dictionary specs.
+  /// -> function
   dictionary_case: auto,
+  /// Case for function specs.
+  /// -> function
   function_case: auto,
+  /// Case for fixed-point specs.
+  /// -> function
   fix: auto,
+  /// Case for recursive self refs.
+  /// -> function
   self: auto,
 ) = spec => {
   let missing-cases = (
@@ -368,7 +398,15 @@
 /// Renders an argument spec with a custom spec renderer.
 ///
 /// Used by `args-spec-to-string` and `spec-to-string`.
-#let args-spec-to-string-aux(spec-to-string, args-spec) = {
+/// -> str
+#let args-spec-to-string-aux(
+  /// Spec renderer.
+  /// -> function
+  spec-to-string,
+  /// Argument spec.
+  /// -> args-spec
+  args-spec,
+) = {
   if args-spec.__tag__ == "args-spec/none" {
     ""
   } else if args-spec.__tag__ == "args-spec/args" {
@@ -393,7 +431,15 @@
 /// Renders a constructor spec with a custom spec renderer.
 ///
 /// Used by `spec-to-string` for enum constructors.
-#let constr-spec-to-string-aux(spec-to-string, constr-spec) = {
+/// -> str
+#let constr-spec-to-string-aux(
+  /// Spec renderer.
+  /// -> function
+  spec-to-string,
+  /// Constructor spec.
+  /// -> constr-spec
+  constr-spec,
+) = {
   if constr-spec.__tag__ == "constr-spec/none" {
     ""
   } else if constr-spec.__tag__ == "constr-spec/fields" {
@@ -417,7 +463,15 @@
 /// Parses shorthand argument specs into explicit argument specs.
 ///
 /// This lower-level variant accepts the recursive spec parser to use.
-#let args-spec-parse-aux(spec-parse, args-spec) = {
+/// -> RESULT(args-spec)
+#let args-spec-parse-aux(
+  /// Spec parser to use recursively.
+  /// -> function
+  spec-parse,
+  /// Argument spec shorthand.
+  /// -> any
+  args-spec,
+) = {
   if args-spec == none {
     ok((__tag__: "args-spec/none"))
   } else if type(args-spec) == dictionary {
@@ -489,7 +543,15 @@
 /// Parses shorthand constructor specs into explicit constructor specs.
 ///
 /// This lower-level variant accepts the recursive spec parser to use.
-#let constr-spec-parse-aux(spec-parse, constr-spec) = {
+/// -> RESULT(constr-spec)
+#let constr-spec-parse-aux(
+  /// Spec parser to use recursively.
+  /// -> function
+  spec-parse,
+  /// Constructor spec shorthand.
+  /// -> any
+  constr-spec,
+) = {
   if constr-spec == none {
     ok((__tag__: "constr-spec/none"))
   } else if type(constr-spec) == dictionary {
@@ -565,7 +627,12 @@
 ///
 /// Builtin types become builtin specs, plain dictionaries become struct specs,
 /// and nested specs are parsed recursively.
-#let spec-parse(spec) = {
+/// -> RESULT(spec)
+#let spec-parse(
+  /// Spec shorthand.
+  /// -> any
+  spec,
+) = {
   if type(spec) == type {
     ok((__tag__: "spec/builtin", name: str(spec), value: spec))
   } else if type(spec) == function {
@@ -745,7 +812,18 @@
 ///
 /// Shorthand specs are parsed first, so builtin types such as `int` work
 /// directly.
-#let spec-to-string(spec, prec: 0, depth: 0) = {
+/// -> str
+#let spec-to-string(
+  /// Spec or spec shorthand.
+  /// -> any
+  spec,
+  /// Reserved precedence parameter.
+  /// -> int
+  prec: 0,
+  /// Recursive self depth.
+  /// -> int
+  depth: 0,
+) = {
   spec = result-unwrap(spec-parse(spec))
   let existing-name = if type(spec) == dictionary {
     spec.at("name", default: spec.at(
@@ -826,11 +904,14 @@
 }
 
 /// Renders an argument spec as a compact string.
+/// -> function
 #let args-spec-to-string = args-spec-to-string-aux.with(spec-to-string)
 
 
 /// Parses an argument spec using the default spec parser.
+/// -> function
 #let args-spec-parse = args-spec-parse-aux.with(spec-parse)
 
 /// Parses a constructor spec using the default spec parser.
+/// -> function
 #let constr-spec-parse = constr-spec-parse-aux.with(spec-parse)

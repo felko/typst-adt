@@ -18,18 +18,6 @@
 It provides specs, validation, generated constructors, eliminators, field
 accessors, and recursive folds.
 
-The package is experimental. The main entrypoint is:
-
-```typst
-#import "src/lib.typ": *
-```
-
-When writing from inside `docs/`, use:
-
-```typst
-#import "../src/lib.typ": *
-```
-
 == Core idea
 
 A _spec_ describes the shape of a value.
