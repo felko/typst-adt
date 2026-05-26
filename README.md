@@ -142,8 +142,9 @@ For functions:
 
 ## Recursive Types
 
-Use `spec-fix` to define recursive specifications. Generated values carry
-methods such as `.elim`, `.rec`, `.annotate`, and `.validate` when applicable.
+Use `spec-fix` to define recursive specifications. Generated values are plain
+data; use the helpers returned by `generate` to eliminate, fold, annotate, or
+validate them.
 
 ```typst
 #let LIST(T) = spec-fix(

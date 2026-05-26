@@ -180,6 +180,7 @@ Use `spec-fix` for recursive data.
   ),
   elim: list-elim,
   rec: list-rec,
+  annotate: list-annotate,
 ) = generate(LIST(int))
 
 #let list(..args) = {
@@ -203,18 +204,18 @@ Use `spec-fix` for recursive data.
 #assert.eq(length(one-two), 2)
 ```
 
-Generated recursive enum values also carry methods:
+Generated values are plain data. Use generated helpers explicitly:
 
 ```typst
-#assert.eq((one-two.elim)(
+#assert.eq(list-elim(
   nil: none,
   cons: (head, tail) => head,
-), 1)
+)(one-two), 1)
 
-#assert.eq((one-two.rec)(
+#assert.eq(list-rec(
   nil: 0,
   cons: (head, tail-len) => tail-len + 1,
-), 2)
+)(one-two), 2)
 ```
 
 == Annotations
@@ -222,15 +223,17 @@ Generated recursive enum values also carry methods:
 Recursive enum values can be annotated in one pass.
 
 ```typst
-#let sized = (list(1, 2).annotate)(
+#let SIZED-LIST = spec-annotate(LIST(int), size: int)
+
+#let sized = list-annotate(
   __ann__: (size: int),
   nil: (size: 0),
   cons: (head, tail) => (size: tail.size + 1),
-)
+)(list(1, 2))
 
 #assert.eq(sized.size, 2)
 #assert.eq(sized.tail.size, 1)
-#assert.eq((sized.validate)(), ok(sized))
+#assert.eq(validate(SIZED-LIST, sized), ok(sized))
 ```
 
 == Results

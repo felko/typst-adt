@@ -3,7 +3,7 @@
 #let STR-INTS = spec-dictionary(str, int)
 #let (intro: str-ints, elim: str-ints-elim) = generate(STR-INTS)
 
-#assert.eq((str-ints((:)).validate)(), ok(str-ints((:))))
+#assert.eq(validate(STR-INTS, str-ints((:))), ok(str-ints((:))))
 #assert.eq(str-ints((a: 1, b: 2)).a, 1)
 #assert.eq(str-ints-elim(xs => xs.len())(str-ints((a: 1, b: 2))), 2)
 #assert.eq(

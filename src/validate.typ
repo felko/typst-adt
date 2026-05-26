@@ -1,27 +1,6 @@
 #import "result.typ": *
 #import "spec.typ": *
 
-/// Generated method fields ignored during value validation.
-/// -> array(str)
-#let value-method-fields = ("validate", "elim", "rec", "annotate")
-
-/// Removes generated method fields from a dictionary value.
-///
-/// Non-dictionary values are returned unchanged.
-/// -> any
-#let strip-value-method-fields(
-  /// Value to strip.
-  /// -> any
-  value,
-) = {
-  if type(value) == dictionary {
-    for field in value-method-fields {
-      let _ = value.remove(field, default: none)
-    }
-  }
-  value
-}
-
 /// Validates function call arguments against an argument spec.
 ///
 /// This lower-level variant accepts the recursive validator to use.
@@ -121,7 +100,7 @@
   ..args
 ) = constr-spec-elim(
   none_: {
-    let named = strip-value-method-fields(args.named())
+    let named = args.named()
     if args.pos().len() != 0 or named.len() != 0 {
       err("expected no arguments, got `" + repr(args) + "`")
     } else {
@@ -130,7 +109,6 @@
   },
   fields: fields-spec => {
     let (pos, named) = (args.pos(), args.named())
-    named = strip-value-method-fields(named)
     let fields = (:)
     for (field-name, field-spec) in fields-spec.pairs() {
       let arg = if named.keys().contains(field-name) {
@@ -239,7 +217,6 @@
     if type(value) != dictionary {
       err("expected dictionary, got `" + str(type(value)) + "`")
     } else {
-      let value = strip-value-method-fields(value)
       result-map(
         pairs => pairs.to-dict(),
         result-all(

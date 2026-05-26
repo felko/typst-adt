@@ -2,7 +2,7 @@
 
 #let UNIT = spec-struct(__name__: "UNIT")
 #let (intro: unit, elim: unit-elim) = generate(UNIT)
-#assert.eq((unit().validate)(), ok(unit()))
+#assert.eq(validate(UNIT, unit()), ok(unit()))
 #assert.eq(unit-elim(() => "unit")(unit()), "unit")
 #assert.eq(unit-elim("constant")(unit()), "constant")
 

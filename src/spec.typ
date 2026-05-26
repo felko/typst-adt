@@ -226,6 +226,73 @@
   )
 }
 
+/// Adds annotation fields to a spec.
+///
+/// For enum specs, every constructor receives the annotation fields. For
+/// fixed-point specs, recursive children are annotated too.
+/// -> spec
+#let spec-annotate(
+  /// Spec to annotate.
+  /// -> spec
+  spec,
+  /// Annotation field specs.
+  /// -> arguments
+  ..ann
+) = {
+  assert(
+    ann.pos().len() == 0,
+    message: "expected no positional annotation specs",
+  )
+  let ann-fields = result-unwrap(result-all-dict(spec-parse, ann.named()))
+  let add-fields(fields) = {
+    for field-name in ann-fields.keys() {
+      if fields.keys().contains(field-name) {
+        panic("annotation field already exists: `" + field-name + "`")
+      }
+    }
+    (: ..fields, ..ann-fields)
+  }
+  let add-ann(spec) = spec-elim(
+    empty_case: () => spec-empty,
+    builtin: type_ => panic("cannot annotate builtin spec"),
+    any: () => panic("cannot annotate any spec"),
+    union_case: (name, elems) => panic("cannot annotate union spec"),
+    enum: (name, constrs) => (
+      __tag__: "spec/enum",
+      name: name,
+      constrs: constrs
+        .pairs()
+        .map(((constr-name, constr-spec)) => (
+          constr-name,
+          constr-spec-elim(
+            none_: (__tag__: "constr-spec/fields", fields: ann-fields),
+            fields: fields => (
+              __tag__: "constr-spec/fields",
+              fields: add-fields(fields),
+            ),
+          )(constr-spec),
+        ))
+        .to-dict(),
+    ),
+    struct: (name, fields) => (
+      __tag__: "spec/struct",
+      name: name,
+      fields: add-fields(fields),
+    ),
+    array_case: (name, inner) => panic("cannot annotate array spec"),
+    dictionary_case: (name, key, value) => panic(
+      "cannot annotate dictionary spec",
+    ),
+    function_case: (name, dom, cod) => panic("cannot annotate function spec"),
+    fix: (name, fun) => spec-fix(
+      __name__: name,
+      self => add-ann(fun(self)),
+    ),
+    self: depth => spec,
+  )(result-unwrap(spec-parse(spec)))
+  add-ann(spec)
+}
+
 /// Returns the flattened elements of a union spec.
 ///
 /// Non-union specs are returned as a one-element array.
@@ -342,7 +409,6 @@
       name: __name__,
       key: key,
       value: value,
-      // validate: result-all.with(inner.validate)
     ),
     spec-parse(key),
     spec-parse(value),

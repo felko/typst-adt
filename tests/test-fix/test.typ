@@ -61,27 +61,12 @@
   cons: (head, tail) => head,
 )
 #assert.eq(list-head(one-two), 1)
-#assert.eq(
-  (one-two.elim)(
-    nil: none,
-    cons: (head, tail) => head,
-  ),
-  1,
-)
-
 #let list-len = list-rec(
   nil: 0,
   cons: (head, tail-len) => tail-len + 1,
 )
 #assert.eq(list-len(list-nil), 0)
 #assert.eq(list-len(one-two), 2)
-#assert.eq(
-  (one-two.rec)(
-    nil: 0,
-    cons: (head, tail-len) => tail-len + 1,
-  ),
-  2,
-)
 
 #let list-append(l1, l2) = list-rec(
   nil: l2,
@@ -98,38 +83,43 @@
 
 #assert.eq(list-append(list(1, 2), list(3)), list(1, 2, 3))
 
-#let sized = (list(1, 2).annotate)(
+#let (annotate: list-annotate) = generate(LIST(int))
+#let SIZED-LIST = spec-annotate(LIST(int), size: int)
+#let (elim: sized-list-elim) = generate(SIZED-LIST)
+
+#let sized = list-annotate(
   __ann__: (size: int),
   nil: (size: 0),
   cons: (head, tail) => (size: tail.size + 1),
-)
+)(list(1, 2))
 
 #assert.eq(sized.size, 2)
 #assert.eq(sized.tail.size, 1)
+#assert.eq(validate(SIZED-LIST, sized), ok(sized))
 #assert.eq(
-  (sized.elim)(
+  sized-list-elim(
     nil: 0,
-    cons: (head, tail) => head + tail.size,
-  ),
+    cons: (head, tail, size) => head + tail.size,
+  )(sized),
   2,
 )
 
-#let sized-and-summed = (list(1, 2).annotate)(
+#let SIZED-SUMMED-LIST = spec-annotate(LIST(int), size: int, sum: int)
+
+#let sized-and-summed = list-annotate(
   __ann__: (size: int, sum: int),
   nil: (size: 0, sum: 0),
   cons: (head, (size: tail-size, sum: tail-sum)) => (
     size: tail-size + 1,
     sum: tail-sum + head,
   ),
-)
-
-#assert.eq((sized-and-summed.validate)(), ok(sized-and-summed))
+)(list(1, 2))
 
 #assert.eq(sized-and-summed.size, 2)
 #assert.eq(sized-and-summed.sum, 3)
 #assert.eq(sized-and-summed.tail.size, 1)
 #assert.eq(sized-and-summed.tail.sum, 2)
-#assert.eq((sized-and-summed.validate)(), ok(sized-and-summed))
+#assert.eq(validate(SIZED-SUMMED-LIST, sized-and-summed), ok(sized-and-summed))
 
 #let max2(x, y) = if x > y { x } else { y }
 
@@ -151,6 +141,9 @@
     leaf: tree-leaf,
     node: tree-node,
   ),
+  rec: tree-rec,
+  elim: tree-elim,
+  annotate: tree-annotate,
 ) = generate(TREE(str))
 
 #let tree = tree-node(
@@ -158,30 +151,44 @@
   tree-leaf("c"),
 )
 
-#let heighted = (tree.annotate)(
+#let HEIGHTED-TREE = spec-annotate(TREE(str), height: int)
+
+#let heighted = tree-annotate(
   __ann__: (height: int),
   leaf: value => (height: 0),
   node: (left, right) => {
     (height: max2(left.height, right.height) + 1)
   },
-)
+)(tree)
 
 #assert.eq(heighted.height, 2)
 #assert.eq(heighted.left.height, 1)
 #assert.eq(heighted.left.left.height, 0)
 #assert.eq(heighted.right.height, 0)
-#assert.eq((heighted.validate)(), ok(heighted))
+#assert.eq(validate(HEIGHTED-TREE, heighted), ok(heighted))
 
-#let annotate-depth(tree) = (tree.rec)(
-  leaf: value => depth => depth,
-  node: (left, right) => depth => {
-    tree-node(
-      __ann__: (depth: depth),
-      left(depth + 1),
-      right(depth + 1),
-    )
-  },
-)(0)
+#let HEIGHTED-DEPTHED-TREE = spec-annotate(TREE(str), height: int, depth: int)
+#let (
+  intro: (
+    leaf: heighted-depthed-leaf,
+    node: heighted-depthed-node,
+  ),
+) = generate(HEIGHTED-DEPTHED-TREE)
+#let (rec: heighted-tree-rec) = generate(HEIGHTED-TREE)
+
+#let annotate-depth(tree) = heighted-tree-rec(
+  leaf: (value, height) => depth => heighted-depthed-leaf(
+    value,
+    height,
+    depth,
+  ),
+  node: (left, right, height) => depth => heighted-depthed-node(
+    left(depth + 1),
+    right(depth + 1),
+    height,
+    depth,
+  ),
+)(tree)(0)
 
 #let heighted-and-depthed = annotate-depth(heighted)
 
@@ -194,9 +201,13 @@
 #assert.eq(heighted-and-depthed.right.height, 0)
 #assert.eq(heighted-and-depthed.right.depth, 1)
 #assert.eq(
-  (heighted-and-depthed.elim)(
+  validate(HEIGHTED-DEPTHED-TREE, heighted-and-depthed),
+  ok(heighted-and-depthed),
+)
+#assert.eq(
+  tree-elim(
     leaf: value => value,
     node: (left, right) => left.left.value,
-  ),
+  )(heighted-and-depthed),
   "a",
 )
