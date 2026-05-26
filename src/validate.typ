@@ -1,10 +1,12 @@
 #import "result.typ": *
 #import "spec.typ": *
 
-// Generated method fields ignored during value validation.
+/// Generated method fields ignored during value validation.
 #let value-method-fields = ("validate", "elim", "rec", "annotate")
 
-// Removes generated method fields from dictionary values.
+/// Removes generated method fields from a dictionary value.
+///
+/// Non-dictionary values are returned unchanged.
 #let strip-value-method-fields(value) = {
   if type(value) == dictionary {
     for field in value-method-fields {
@@ -14,7 +16,9 @@
   value
 }
 
-// Validates function call arguments against an argument spec.
+/// Validates function call arguments against an argument spec.
+///
+/// This lower-level variant accepts the recursive validator to use.
 #let validate-args-aux(validate, args-spec, ..args) = args-spec-elim(
   none_: {
     if args.pos().len() != 0 or args.named().len() != 0 {
@@ -84,8 +88,9 @@
   },
 )(args-spec)
 
-// validate-constr-aux(T)(FUNCTION(T)(RESULT(T)), CONSTR-SPEC, .. ) → DICTIONARY(str, )
-// Validates constructor arguments against a constructor spec.
+/// Validates constructor arguments against a constructor spec.
+///
+/// This lower-level variant accepts the recursive validator to use.
 #let validate-constr-aux(validate, constr-spec, ..args) = constr-spec-elim(
   none_: {
     let named = strip-value-method-fields(args.named())
@@ -124,7 +129,10 @@
   },
 )(constr-spec)
 
-// Validates a value against a spec.
+/// Validates a value against a spec.
+///
+/// Returns `ok(validated-value)` when the value matches the spec, or
+/// `err(message)` otherwise.
 #let validate(spec, value) = spec-elim(
   empty_case: () => {
     err("empty type has no values")
@@ -222,8 +230,12 @@
   },
 )(spec)
 
-// Validates function call arguments with the default validator.
+/// Validates function call arguments with the default validator.
+///
+/// Returns validated Typst `arguments`.
 #let validate-args = validate-args-aux.with(validate)
 
-// Validates constructor arguments with the default validator.
+/// Validates constructor arguments with the default validator.
+///
+/// Returns a dictionary of validated fields.
 #let validate-constr = validate-constr-aux.with(validate)

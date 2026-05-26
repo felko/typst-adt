@@ -1,4 +1,5 @@
 #import "../src/lib.typ": *
+#import "@preview/tidy:0.4.3"
 
 #set document(
   title: "typst-meta manual",
@@ -172,16 +173,13 @@ Named arguments are supported:
 Use `spec-fix` for recursive data.
 
 ```typst
-#let LIST(T) = {
-  T = result-unwrap(spec-parse(T))
-  spec-fix(
-    __name__: "list(" + spec-to-string(T) + ")",
-    self => spec-enum(
-      nil: none,
-      cons: (head: T, tail: self),
-    ),
-  )
-}
+#let LIST(T) = spec-fix(
+  __name__: "list(" + spec-to-string(T) + ")",
+  self => spec-enum(
+    nil: none,
+    cons: (head: T, tail: self),
+  ),
+)
 
 #let (
   intro: (
@@ -270,59 +268,18 @@ Useful helpers:
 - `result-any(f, xs)`
 - `result-unwrap(result)`
 
-== Public functions
+== Reference
 
-=== Spec builders
+#let show-reference(title, path) = {
+  heading(level: 2, title)
+  tidy.show-module(tidy.parse-module(read(path)))
+}
 
-#table(
-  columns: (1fr, 2fr),
-  inset: 6pt,
-  [`spec-builtin(type)`], [Builtin Typst type spec.],
-  [`spec-any`], [Accepts any value.],
-  [`spec-empty`], [Accepts no values.],
-  [`spec-struct(__name__: auto, ..fields)`], [Struct spec.],
-  [`spec-enum(__name__: auto, ..constructors)`], [Enum spec.],
-  [`spec-union(__name__: auto, ..specs)`], [Union spec.],
-  [`spec-array(__name__: auto, inner)`], [Array spec.],
-  [`spec-dictionary(__name__: auto, key, value)`], [Dictionary spec.],
-  [`spec-function(..domain)(codomain)`], [Function spec.],
-  [`spec-fix(__name__: auto, fun)`], [Recursive spec.],
-  [`spec-parse(spec)`], [Parses shorthand into an explicit spec.],
-  [`spec-to-string(spec)`], [Renders a compact spec name.],
-)
-
-=== Validation and generation
-
-#table(
-  columns: (1fr, 2fr),
-  inset: 6pt,
-  [`validate(spec, value)`], [Checks a value against a spec.],
-  [`validate-args(args-spec, ..args)`], [Checks function call arguments.],
-  [`validate-constr(constr-spec, ..args)`], [Checks constructor arguments.],
-  [`generate(spec)`], [Generates helpers for a spec.],
-  [`CASES(spec, T)`], [Builds a spec for eliminator cases.],
-)
-
-=== Result helpers
-
-#table(
-  columns: (1fr, 2fr),
-  inset: 6pt,
-  [`RESULT(T)`], [Spec for result values.],
-  [`ok(x)`], [Successful result.],
-  [`err(e)`], [Failed result.],
-  [`result-elim(ok: ..., err: ...)(result)`], [Pattern matches a result.],
-  [`result-map(f, result)`], [Maps an ok value.],
-  [`result-map2(f, a, b)`], [Maps two ok values.],
-  [`result-or-else(a, b)`], [Fallback result.],
-  [`result-and-then(result, cont)`], [Chains result operations.],
-  [`result-is-ok(result)`], [Checks for ok.],
-  [`result-is-err(result)`], [Checks for err.],
-  [`result-all(f, xs)`], [Collects ok results over an array.],
-  [`result-all-dict(f, xs)`], [Collects ok results over a dictionary.],
-  [`result-any(f, xs)`], [Returns the first ok result.],
-  [`result-unwrap(result)`], [Returns ok value or panics.],
-)
+#show-reference("Specs", "../src/spec.typ")
+#show-reference("Validation", "../src/validate.typ")
+#show-reference("Generation", "../src/generate.typ")
+#show-reference("Results", "../src/result.typ")
+#show-reference("Parsing", "../src/bootstrap.typ")
 
 == Development
 

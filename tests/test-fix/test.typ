@@ -1,13 +1,10 @@
 #import "../../src/lib.typ": *
 
-#let OPTION(T) = {
-  T = result-unwrap(spec-parse(T))
-  spec-enum(
-    __name__: "OPTION(" + spec-to-string(T) + ")",
-    nothing: none,
-    some: T,
-  )
-}
+#let OPTION(T) = spec-enum(
+  __name__: "OPTION(" + spec-to-string(T) + ")",
+  nothing: none,
+  some: T,
+)
 
 #let (
   intro: (
@@ -22,21 +19,18 @@
 #assert.eq(option-elim(nothing: 0, some: value => value)(option-nothing), 0)
 #assert.eq(option-elim(nothing: 0, some: value => value)(option-some(5)), 5)
 
-#let LIST(T) = {
-  T = result-unwrap(spec-parse(T))
-  spec-fix(
-    __name__: "list(" + spec-to-string(T) + ")",
-    self => spec-enum(
-      __name__: "list.base("
-        + spec-to-string(T)
-        + ", "
-        + spec-to-string(self)
-        + ")",
-      nil: none,
-      cons: (head: T, tail: self),
-    ),
-  )
-}
+#let LIST(T) = spec-fix(
+  __name__: "list(" + spec-to-string(T) + ")",
+  self => spec-enum(
+    __name__: "list.base("
+      + spec-to-string(T)
+      + ", "
+      + spec-to-string(self)
+      + ")",
+    nil: none,
+    cons: (head: T, tail: self),
+  ),
+)
 
 #let (
   intro: (
@@ -139,21 +133,18 @@
 
 #let max2(x, y) = if x > y { x } else { y }
 
-#let TREE(T) = {
-  T = result-unwrap(spec-parse(T))
-  spec-fix(
-    __name__: "tree(" + spec-to-string(T) + ")",
-    self => spec-enum(
-      __name__: "tree.base("
-        + spec-to-string(T)
-        + ", "
-        + spec-to-string(self)
-        + ")",
-      leaf: T,
-      node: (left: self, right: self),
-    ),
-  )
-}
+#let TREE(T) = spec-fix(
+  __name__: "tree(" + spec-to-string(T) + ")",
+  self => spec-enum(
+    __name__: "tree.base("
+      + spec-to-string(T)
+      + ", "
+      + spec-to-string(self)
+      + ")",
+    leaf: T,
+    node: (left: self, right: self),
+  ),
+)
 
 #let (
   intro: (

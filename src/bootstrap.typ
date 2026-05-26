@@ -1,12 +1,16 @@
 #import "result.typ": *
 
-// Removes and returns an enum value's constructor tag.
+/// Removes and returns an enum value's constructor tag.
+///
+/// Returns `(value, tag)` where `value` no longer contains `__tag__`.
 #let enum-pop-tag(value) = {
   let tag = value.remove("__tag__").split("/").last()
   (value, tag)
 }
 
-// Dispatches on an argument spec.
+/// Dispatches on an argument spec.
+///
+/// Pass `none_:` and `args:` cases. Cases may be functions or constants.
 #let args-spec-elim(
   none_: auto,
   args: auto,
@@ -70,7 +74,9 @@
   }
 }
 
-// Dispatches on a constructor spec.
+/// Dispatches on a constructor spec.
+///
+/// Pass `none_:` and `fields:` cases. Cases may be functions or constants.
 #let constr-spec-elim(
   none_: auto,
   fields: auto,
@@ -149,7 +155,10 @@
   }
 }
 
-// Dispatches on a spec kind.
+/// Dispatches on a spec kind.
+///
+/// All spec cases must be provided. This is the central eliminator for spec
+/// values.
 #let spec-elim(
   empty_case: auto,
   builtin: auto,
@@ -356,7 +365,9 @@
   }
 }
 
-// Renders an argument spec with a custom spec renderer.
+/// Renders an argument spec with a custom spec renderer.
+///
+/// Used by `args-spec-to-string` and `spec-to-string`.
 #let args-spec-to-string-aux(spec-to-string, args-spec) = {
   if args-spec.__tag__ == "args-spec/none" {
     ""
@@ -379,7 +390,9 @@
   }
 }
 
-// Renders a constructor spec with a custom spec renderer.
+/// Renders a constructor spec with a custom spec renderer.
+///
+/// Used by `spec-to-string` for enum constructors.
 #let constr-spec-to-string-aux(spec-to-string, constr-spec) = {
   if constr-spec.__tag__ == "constr-spec/none" {
     ""
@@ -401,87 +414,9 @@
   }
 }
 
-// Renders a spec as a compact string.
-#let spec-to-string(spec, prec: 0, depth: 0) = {
-  let existing-name = spec.at("name", default: spec.at(
-    "__name__",
-    default: auto,
-  ))
-  if existing-name != auto {
-    return existing-name
-  }
-  spec-elim(
-    empty_case: () => "empty",
-    builtin: type_ => str(type_),
-    any: () => "any",
-    union_case: (name, elems) => elems
-      .map(elem => spec-to-string(elem, depth: depth))
-      .join(" | "),
-    enum: (name, constrs) => (
-      "enum {"
-        + constrs
-          .pairs()
-          .map(((constr-name, constr-spec)) => {
-            (
-              constr-name
-                + constr-spec-to-string-aux(
-                  spec => spec-to-string(spec, depth: depth),
-                  constr-spec,
-                )
-            )
-          })
-          .join(", ")
-        + "}"
-    ),
-    struct: (name, fields) => (
-      "struct {"
-        + fields
-          .pairs()
-          .map(((field-name, field-spec)) => {
-            field-name + ": " + spec-to-string(field-spec, depth: depth)
-          })
-          .join(", ")
-        + "}"
-    ),
-    array_case: (name, inner) => (
-      "array(" + spec-to-string(inner, depth: depth) + ")"
-    ),
-    dictionary_case: (name, key, value) => (
-      "dictionary("
-        + spec-to-string(key, depth: depth)
-        + ", "
-        + spec-to-string(value, depth: depth)
-        + ")"
-    ),
-    function_case: (name, dom, cod) => (
-      args-spec-to-string-aux(spec => spec-to-string(spec, depth: depth), dom)
-        + " → "
-        + spec-to-string(cod, depth: depth)
-    ),
-    fix: (name, fun) => {
-      let var = "self@" + str(depth)
-      (
-        "fix "
-          + var
-          + ". "
-          + spec-to-string(
-            (fun)((
-              __tag__: "spec/self",
-              depth: depth,
-            )),
-            depth: depth + 1,
-          )
-      )
-    },
-    self: depth => "self@" + str(depth),
-  )(spec)
-}
-
-// Renders an argument spec as a compact string.
-#let args-spec-to-string = args-spec-to-string-aux.with(spec-to-string)
-
-
-// Parses shorthand argument specs into explicit argument specs.
+/// Parses shorthand argument specs into explicit argument specs.
+///
+/// This lower-level variant accepts the recursive spec parser to use.
 #let args-spec-parse-aux(spec-parse, args-spec) = {
   if args-spec == none {
     ok((__tag__: "args-spec/none"))
@@ -551,7 +486,9 @@
   } else {}
 }
 
-// Parses shorthand constructor specs into explicit constructor specs.
+/// Parses shorthand constructor specs into explicit constructor specs.
+///
+/// This lower-level variant accepts the recursive spec parser to use.
 #let constr-spec-parse-aux(spec-parse, constr-spec) = {
   if constr-spec == none {
     ok((__tag__: "constr-spec/none"))
@@ -624,7 +561,10 @@
   }
 }
 
-// Parses shorthand specs into explicit specs.
+/// Parses shorthand specs into explicit specs.
+///
+/// Builtin types become builtin specs, plain dictionaries become struct specs,
+/// and nested specs are parsed recursively.
 #let spec-parse(spec) = {
   if type(spec) == type {
     ok((__tag__: "spec/builtin", name: str(spec), value: spec))
@@ -801,9 +741,96 @@
   }
 }
 
+/// Renders a spec as a compact string.
+///
+/// Shorthand specs are parsed first, so builtin types such as `int` work
+/// directly.
+#let spec-to-string(spec, prec: 0, depth: 0) = {
+  spec = result-unwrap(spec-parse(spec))
+  let existing-name = if type(spec) == dictionary {
+    spec.at("name", default: spec.at(
+      "__name__",
+      default: auto,
+    ))
+  } else {
+    auto
+  }
+  if existing-name != auto {
+    return existing-name
+  }
+  spec-elim(
+    empty_case: () => "empty",
+    builtin: type_ => str(type_),
+    any: () => "any",
+    union_case: (name, elems) => elems
+      .map(elem => spec-to-string(elem, depth: depth))
+      .join(" | "),
+    enum: (name, constrs) => (
+      "enum {"
+        + constrs
+          .pairs()
+          .map(((constr-name, constr-spec)) => {
+            (
+              constr-name
+                + constr-spec-to-string-aux(
+                  spec => spec-to-string(spec, depth: depth),
+                  constr-spec,
+                )
+            )
+          })
+          .join(", ")
+        + "}"
+    ),
+    struct: (name, fields) => (
+      "struct {"
+        + fields
+          .pairs()
+          .map(((field-name, field-spec)) => {
+            field-name + ": " + spec-to-string(field-spec, depth: depth)
+          })
+          .join(", ")
+        + "}"
+    ),
+    array_case: (name, inner) => (
+      "array(" + spec-to-string(inner, depth: depth) + ")"
+    ),
+    dictionary_case: (name, key, value) => (
+      "dictionary("
+        + spec-to-string(key, depth: depth)
+        + ", "
+        + spec-to-string(value, depth: depth)
+        + ")"
+    ),
+    function_case: (name, dom, cod) => (
+      args-spec-to-string-aux(spec => spec-to-string(spec, depth: depth), dom)
+        + " → "
+        + spec-to-string(cod, depth: depth)
+    ),
+    fix: (name, fun) => {
+      let var = "self@" + str(depth)
+      (
+        "fix "
+          + var
+          + ". "
+          + spec-to-string(
+            (fun)((
+              __tag__: "spec/self",
+              depth: depth,
+            )),
+            depth: depth + 1,
+          )
+      )
+    },
+    self: depth => "self@" + str(depth),
+  )(spec)
+}
 
-// Parses an argument spec using the default spec parser.
+/// Renders an argument spec as a compact string.
+#let args-spec-to-string = args-spec-to-string-aux.with(spec-to-string)
+
+
+/// Parses an argument spec using the default spec parser.
 #let args-spec-parse = args-spec-parse-aux.with(spec-parse)
 
-// Parses a constructor spec using the default spec parser.
+/// Parses a constructor spec using the default spec parser.
 #let constr-spec-parse = constr-spec-parse-aux.with(spec-parse)

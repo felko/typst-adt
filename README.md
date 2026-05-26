@@ -146,16 +146,13 @@ Use `spec-fix` to define recursive specifications. Generated values carry
 methods such as `.elim`, `.rec`, `.annotate`, and `.validate` when applicable.
 
 ```typst
-#let LIST(T) = {
-  T = result-unwrap(spec-parse(T))
-  spec-fix(
-    __name__: "list(" + spec-to-string(T) + ")",
-    self => spec-enum(
-      nil: none,
-      cons: (head: T, tail: self),
-    ),
-  )
-}
+#let LIST(T) = spec-fix(
+  __name__: "list(" + spec-to-string(T) + ")",
+  self => spec-enum(
+    nil: none,
+    cons: (head: T, tail: self),
+  ),
+)
 
 #let (
   intro: (

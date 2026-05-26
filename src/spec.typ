@@ -1,7 +1,8 @@
 #import "bootstrap.typ": *
 
-// spec-builtin(type)
-// Builds a spec for a builtin Typst type.
+/// Builds a spec for a builtin Typst type.
+///
+/// - `type_`: A Typst type such as `int`, `str`, or `dictionary`.
 #let spec-builtin(type_) = {
   assert(
     type(type_) == type,
@@ -14,36 +15,45 @@
   )
 }
 
-// Argument spec for functions that take no arguments.
+/// Argument spec for functions that take no arguments.
 #let args-spec-none = (__tag__: "args-spec/none")
 
-// Builds an argument spec from positional and named field specs.
+/// Builds an argument spec from positional and named specs.
+///
+/// This is an internal constructor used after parsing shorthand argument specs.
 #let args-spec-fields-aux(spec-parse, pos, named) = (
   __tag__: "args-spec/args",
   pos: result-unwrap(result-all(validate, pos)),
   named: result-unwrap(result-all-dict(validate, named)),
 )
 
-// Constructor spec for constructors with no fields.
+/// Constructor spec for constructors with no fields.
 #let constr-spec-none = (__tag__: "constr-spec/none")
 
-// Builds a constructor spec from named field specs.
+/// Builds a constructor spec from named field specs.
+///
+/// This is an internal constructor used after parsing shorthand constructor
+/// specs.
 #let constr-spec-fields-aux(spec-parse, fields) = (
   __tag__: "constr-spec/fields",
   fields: result-unwrap(result-all-dict(validate, fields)),
 )
 
-// Spec that accepts any value.
+/// Spec that accepts any value.
 #let spec-any = (
   __tag__: "spec/any",
 )
 
-// Spec that accepts no values.
+/// Spec that accepts no values.
 #let spec-empty = (
   __tag__: "spec/empty",
 )
 
-// Builds an enum spec from named constructors.
+/// Builds an enum spec from named constructors.
+///
+/// Constructors are passed as named arguments. Use `none` for a nullary
+/// constructor, a spec for a single `value` field, or a dictionary/argument
+/// value for named fields.
 #let spec-enum(__name__: auto, ..args) = {
   assert(
     args.pos().len() == 0,
@@ -87,7 +97,9 @@
   )
 }
 
-// Builds a struct spec from named fields.
+/// Builds a struct spec from named fields.
+///
+/// Fields are passed as named arguments and parsed as specs.
 #let spec-struct(__name__: auto, ..args) = {
   assert(
     args.pos().len() == 0,
@@ -131,14 +143,18 @@
   )
 }
 
-// Wraps a spec-producing function.
+/// Wraps a spec-producing function.
+///
+/// A functor stores a function that can later be applied to produce a spec.
 #let spec-functor(__name__: auto, fun) = (
   __tag__: "spec/functor",
   name: __name__,
   apply: fun,
 )
 
-// Builds a recursive spec as a fixed point.
+/// Builds a recursive spec as a fixed point.
+///
+/// - `fun`: Function from the recursive self spec to the unfolded base spec.
 #let spec-fix(__name__: auto, fun) = {
   if type(fun) != function {
     panic("not a functor: `" + repr(fun) + "`")
@@ -150,7 +166,9 @@
   )
 }
 
-// Returns the flattened elements of a union spec.
+/// Returns the flattened elements of a union spec.
+///
+/// Non-union specs are returned as a one-element array.
 #let spec-union-elems(spec) = spec-elim(
   empty_case: () => (),
   builtin: type_ => (spec,),
@@ -165,7 +183,9 @@
   self: depth => (spec,),
 )(spec)
 
-// Combines two specs into one flattened union.
+/// Combines two specs into one flattened union.
+///
+/// Empty unions collapse away and one-element unions collapse to that element.
 #let spec-union2(left, right) = {
   let elems = (spec-union-elems(left) + spec-union-elems(right)).dedup()
   if elems.len() == 0 {
@@ -181,7 +201,9 @@
   }
 }
 
-// Builds a union spec from zero or more specs.
+/// Builds a union spec from zero or more specs.
+///
+/// Nested unions are flattened. Calling with no specs returns `spec-empty`.
 #let spec-union(__name__: auto, ..args) = {
   assert(
     args.named().len() == 0,
@@ -195,7 +217,9 @@
   unioned
 }
 
-// Builds an array spec.
+/// Builds an array spec.
+///
+/// - `inner`: Spec for each array item.
 #let spec-array(__name__: auto, inner) = {
   result-unwrap(result-map(
     inner => (
@@ -207,7 +231,10 @@
   ))
 }
 
-// Builds a dictionary spec.
+/// Builds a dictionary spec.
+///
+/// - `key`: Spec for each key.
+/// - `value`: Spec for each value.
 #let spec-dictionary(__name__: auto, key, value) = {
   result-unwrap(result-map2(
     (key, value) => (
@@ -222,7 +249,10 @@
   ))
 }
 
-// Builds a function spec from domain arguments and a codomain.
+/// Builds a function spec from domain arguments and a codomain.
+///
+/// Positional and named domain arguments are passed first. The returned function
+/// accepts the codomain spec.
 #let spec-function(..dom) = cod => {
   result-unwrap(result-map2(
     (dom, cod) => (
@@ -236,10 +266,10 @@
   ))
 }
 
-// Spec for names used by specs.
+/// Spec for names used by specs.
 #let SPEC-NAME = spec-union(str, type(auto))
 
-// Spec for function argument specs parameterized by an inner spec.
+/// Spec for function argument specs parameterized by an inner spec.
 #let ARGS-SPEC(T) = spec-enum(
   __name__: "args-spec(" + spec-to-string(T) + ")",
   ..(
@@ -254,7 +284,7 @@
   ).to-dict(),
 )
 
-// Spec for constructor specs parameterized by an inner spec.
+/// Spec for constructor specs parameterized by an inner spec.
 #let CONSTR-SPEC(T) = spec-enum(
   __name__: "constr-spec(" + spec-to-string(T) + ")",
   ..(
@@ -268,7 +298,9 @@
   ).to-dict(),
 )
 
-// Meta-spec describing valid specs.
+/// Meta-spec describing valid specs.
+///
+/// Useful for validating that a value is itself a well-formed spec.
 #let SPEC = spec-fix(
   __name__: "spec",
   self => spec-enum(

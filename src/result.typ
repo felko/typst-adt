@@ -1,4 +1,7 @@
-// Spec for result values: either `ok(value)` or `err(msg)`.
+/// Spec for result values.
+///
+/// A `RESULT(T)` is either `ok(value)` where `value` matches `T`, or `err(msg)`
+/// where `msg` is a string.
 #let RESULT(T) = (
   __tag__: "spec/enum",
   name: auto,
@@ -18,19 +21,26 @@
   ),
 )
 
-// Wraps a successful result value.
+/// Creates a successful result.
+///
+/// - `x`: Value to store.
 #let ok(x) = (
   __tag__: "result/ok",
   value: x,
 )
 
-// Wraps a failed result message.
+/// Creates a failed result.
+///
+/// - `e`: Error message. Converted to a string.
 #let err(e) = (
   __tag__: "result/err",
   msg: str(e),
 )
 
-// Pattern matches a result with `ok:` and `err:` cases.
+/// Pattern matches a result.
+///
+/// Pass exactly two named cases: `ok:` and `err:`. Non-function cases are
+/// treated as constants.
 #let result-elim(..args) = {
   assert(
     args.pos().len() == 0,
@@ -68,13 +78,19 @@
   }
 }
 
-// Applies `f` to the value inside an ok result.
+/// Maps an ok result.
+///
+/// - `f`: Function applied to the ok value.
+/// - `result`: Result to map.
 #let result-map(f, result) = result-elim(
   ok: value => ok(f(value)),
   err: err,
 )(result)
 
-// Applies `f` when both results are ok.
+/// Maps two ok results.
+///
+/// Calls `f(value1, value2)` only when both inputs are ok. The first error is
+/// returned unchanged.
 #let result-map2(f, result1, result2) = result-elim(
   ok: value1 => result-elim(
     ok: value2 => ok(f(value1, value2)),
@@ -83,24 +99,29 @@
   err: err,
 )(result1)
 
-// Returns the first result if ok, otherwise returns the second.
+/// Returns `result1` if it is ok, otherwise returns `result2`.
 #let result-or-else(result1, result2) = result-elim(
   ok: ok,
   err: result2,
 )(result1)
 
-// Chains a result into a function that returns another result.
+/// Chains a result into a result-producing continuation.
+///
+/// Calls `cont(value)` for ok results and passes errors through unchanged.
 #let result-and-then(result, cont) = {
   result-elim(ok: cont, err: err)(result)
 }
 
-// Tests whether a result is ok.
+/// Returns whether `result` is an ok result.
 #let result-is-ok(result) = result.__tag__ == "result/ok"
 
-// Tests whether a result is err.
+/// Returns whether `result` is an err result.
 #let result-is-err(result) = result.__tag__ == "result/err"
 
-// Runs `f` over an array and collects all ok values.
+/// Maps an array with a result-producing function.
+///
+/// Returns `ok(values)` when all items are ok. Returns one error containing all
+/// indexed failures otherwise.
 #let result-all(f, xs) = {
   let ys = ()
   let errs = (:)
@@ -121,7 +142,9 @@
   }
 }
 
-// Runs `f` over dictionary values and rebuilds the dictionary.
+/// Maps dictionary values with a result-producing function.
+///
+/// Keys are preserved. Returns the first aggregated error from `result-all`.
 #let result-all-dict(f, xs) = result-map(
   pairs => pairs.to-dict(),
   result-all(
@@ -130,7 +153,9 @@
   ),
 )
 
-// Zips two arrays with a result-returning function.
+/// Zips two arrays with a result-producing function.
+///
+/// Returns an error on arity mismatch.
 #let result-zip(f, xs, ys) = {
   if xs.len() == ys.len() {
     err("arity mismatch: `" + repr(xs) + "` vs. `" + repr(ys) + "`")
@@ -142,7 +167,9 @@
   }
 }
 
-// Zips matching dictionary keys with a result-returning function.
+/// Zips matching dictionary keys with a result-producing function.
+///
+/// Returns an error when either dictionary is missing keys from the other.
 #let result-zip-dict(f, xs, ys) = {
   assert.eq(type(xs), dictionary)
   assert.eq(type(ys), dictionary)
@@ -188,7 +215,9 @@
   }
 }
 
-// Returns the first ok result from trying `f` over an array.
+/// Returns the first ok result from mapping an array.
+///
+/// If every item fails, returns one error containing all failures.
 #let result-any(f, xs) = {
   let errs = ()
   for (i, x) in xs.enumerate() {
@@ -204,7 +233,9 @@
   err("found no result:\n" + errs.join("\n"))
 }
 
-// Extracts an ok value or panics with the error message.
+/// Extracts the ok value.
+///
+/// Panics with the error message when given an err result.
 #let result-unwrap(result) = {
   if result.__tag__ == "result/ok" {
     result.value
@@ -215,7 +246,9 @@
   }
 }
 
-// Validates an ok result value, passing errors through unchanged.
+/// Validates an ok result value.
+///
+/// Err results pass through unchanged.
 #let result-validate(result, validate) = {
   if result.__tag__ == "result/ok" {
     ok(validate(result.value))
