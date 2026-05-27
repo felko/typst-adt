@@ -60,7 +60,7 @@
 #let result-elim(
   /// Named `ok` and `err` cases.
   /// -> arguments
-  ..args
+  ..args,
 ) = {
   assert(
     args.pos().len() == 0,

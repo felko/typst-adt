@@ -89,7 +89,7 @@
   __name__: auto,
   /// Named constructor specs.
   /// -> arguments
-  ..args
+  ..args,
 ) = {
   assert(
     args.pos().len() == 0,
@@ -143,7 +143,7 @@
   __name__: auto,
   /// Named field specs.
   /// -> arguments
-  ..args
+  ..args,
 ) = {
   assert(
     args.pos().len() == 0,
@@ -237,7 +237,7 @@
   spec,
   /// Annotation field specs.
   /// -> arguments
-  ..ann
+  ..ann,
 ) = {
   assert(
     ann.pos().len() == 0,
@@ -250,7 +250,7 @@
         panic("annotation field already exists: `" + field-name + "`")
       }
     }
-    (: ..fields, ..ann-fields)
+    (:..fields, ..ann-fields)
   }
   let add-ann(spec) = spec-elim(
     empty_case: () => empty,
@@ -351,7 +351,7 @@
   __name__: auto,
   /// Specs to union.
   /// -> arguments
-  ..args
+  ..args,
 ) = {
   assert(
     args.named().len() == 0,
@@ -423,7 +423,7 @@
 #let fun(
   /// Domain argument specs.
   /// -> arguments
-  ..dom
+  ..dom,
 ) = cod => {
   result-unwrap(result-map2(
     (dom, cod) => (

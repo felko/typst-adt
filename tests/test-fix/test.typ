@@ -114,7 +114,10 @@
 #assert.eq(sized-and-summed.sum, 3)
 #assert.eq(sized-and-summed.tail.size, 1)
 #assert.eq(sized-and-summed.tail.sum, 2)
-#assert.eq(adt.validate(SIZED-SUMMED-LIST, sized-and-summed), ok(sized-and-summed))
+#assert.eq(
+  adt.validate(SIZED-SUMMED-LIST, sized-and-summed),
+  ok(sized-and-summed),
+)
 
 #let max2(x, y) = if x > y { x } else { y }
 
@@ -169,14 +172,14 @@
 #let annotate-depth(tree) = tree-rec(
   leaf: value => depth => tree-leaf(
     value,
-    __ann__: (depth: depth,),
+    __ann__: (depth: depth),
   ),
   node: (left, right) => depth => tree-node(
     left(depth + 1),
     right(depth + 1),
     __ann__: (
       depth: depth,
-    )
+    ),
   ),
 )(tree)(0)
 
@@ -184,7 +187,7 @@
   adt.annotate(
     TREE(str),
     height: int,
-    depth: int
+    depth: int,
   ),
   leaf: (value, height) => depth => tree-leaf(
     value,
@@ -199,7 +202,7 @@
     __ann__: (
       height: height,
       depth: depth,
-    )
+    ),
   ),
 )(tree)(0)
 
@@ -214,7 +217,7 @@
 #assert.eq(heighted-and-depthed.right.height, 0)
 #assert.eq(heighted-and-depthed.right.depth, 1)
 #assert.eq(
-  validate(HEIGHTED-DEPTHED-TREE, heighted-and-depthed),
+  adt.validate(HEIGHTED-DEPTHED-TREE, heighted-and-depthed),
   ok(heighted-and-depthed),
 )
 #assert.eq(

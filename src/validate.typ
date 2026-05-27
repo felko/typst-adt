@@ -14,7 +14,7 @@
   args-spec,
   /// Arguments to validate.
   /// -> arguments
-  ..args
+  ..args,
 ) = args-spec-elim(
   none_: {
     if args.pos().len() != 0 or args.named().len() != 0 {
@@ -97,7 +97,7 @@
   constr-spec,
   /// Constructor arguments to validate.
   /// -> arguments
-  ..args
+  ..args,
 ) = constr-spec-elim(
   none_: {
     let named = args.named()
@@ -207,7 +207,7 @@
     ..value,
   ),
   array_case: (name, inner) => {
-    if type(value) != array {
+    if type(value) != type(()) {
       err("expected array, got `" + str(type(value)) + "`")
     } else {
       result-all(validate.with(inner), value)
