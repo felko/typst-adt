@@ -4,7 +4,7 @@
 ///
 /// - `type_`: A Typst type such as `int`, `str`, or `dictionary`.
 /// -> spec
-#let spec-builtin(
+#let builtin(
   /// Builtin Typst type.
   /// -> type
   type_,
@@ -67,13 +67,13 @@
 
 /// Spec that accepts any value.
 /// -> spec
-#let spec-any = (
+#let any = (
   __tag__: "spec/any",
 )
 
 /// Spec that accepts no values.
 /// -> spec
-#let spec-empty = (
+#let empty = (
   __tag__: "spec/empty",
 )
 
@@ -83,7 +83,7 @@
 /// constructor, a spec for a single `value` field, or a dictionary/argument
 /// value for named fields.
 /// -> spec
-#let spec-enum(
+#let enum(
   /// Optional display name.
   /// -> str | auto
   __name__: auto,
@@ -137,7 +137,7 @@
 ///
 /// Fields are passed as named arguments and parsed as specs.
 /// -> spec
-#let spec-struct(
+#let struct(
   /// Optional display name.
   /// -> str | auto
   __name__: auto,
@@ -191,7 +191,7 @@
 ///
 /// A functor stores a function that can later be applied to produce a spec.
 /// -> spec
-#let spec-functor(
+#let functor(
   /// Optional display name.
   /// -> str | auto
   __name__: auto,
@@ -208,7 +208,7 @@
 ///
 /// - `fun`: Function from the recursive self spec to the unfolded base spec.
 /// -> spec
-#let spec-fix(
+#let fix(
   /// Optional display name.
   /// -> str | auto
   __name__: auto,
@@ -231,7 +231,7 @@
 /// For enum specs, every constructor receives the annotation fields. For
 /// fixed-point specs, recursive children are annotated too.
 /// -> spec
-#let spec-annotate(
+#let annotate(
   /// Spec to annotate.
   /// -> spec
   spec,
@@ -253,7 +253,7 @@
     (: ..fields, ..ann-fields)
   }
   let add-ann(spec) = spec-elim(
-    empty_case: () => spec-empty,
+    empty_case: () => empty,
     builtin: type_ => panic("cannot annotate builtin spec"),
     any: () => panic("cannot annotate any spec"),
     union_case: (name, elems) => panic("cannot annotate union spec"),
@@ -284,7 +284,7 @@
       "cannot annotate dictionary spec",
     ),
     function_case: (name, dom, cod) => panic("cannot annotate function spec"),
-    fix: (name, fun) => spec-fix(
+    fix: (name, fun) => fix(
       __name__: name,
       self => add-ann(fun(self)),
     ),
@@ -297,7 +297,7 @@
 ///
 /// Non-union specs are returned as a one-element array.
 /// -> array(spec)
-#let spec-union-elems(
+#let union-elems(
   /// Spec to inspect.
   /// -> spec
   spec,
@@ -319,7 +319,7 @@
 ///
 /// Empty unions collapse away and one-element unions collapse to that element.
 /// -> spec
-#let spec-union2(
+#let union2(
   /// Left spec.
   /// -> spec
   left,
@@ -327,9 +327,9 @@
   /// -> spec
   right,
 ) = {
-  let elems = (spec-union-elems(left) + spec-union-elems(right)).dedup()
+  let elems = (union-elems(left) + union-elems(right)).dedup()
   if elems.len() == 0 {
-    spec-empty
+    empty
   } else if elems.len() == 1 {
     elems.first()
   } else {
@@ -343,9 +343,9 @@
 
 /// Builds a union spec from zero or more specs.
 ///
-/// Nested unions are flattened. Calling with no specs returns `spec-empty`.
+/// Nested unions are flattened. Calling with no specs returns `empty`.
 /// -> spec
-#let spec-union(
+#let union(
   /// Optional display name.
   /// -> str | auto
   __name__: auto,
@@ -360,7 +360,7 @@
   let unioned = args
     .pos()
     .map(spec => result-unwrap(spec-parse(spec)))
-    .fold(spec-empty, spec-union2)
+    .fold(empty, union2)
   unioned.name = __name__
   unioned
 }
@@ -369,7 +369,7 @@
 ///
 /// - `inner`: Spec for each array item.
 /// -> spec
-#let spec-array(
+#let array(
   /// Optional display name.
   /// -> str | auto
   __name__: auto,
@@ -392,7 +392,7 @@
 /// - `key`: Spec for each key.
 /// - `value`: Spec for each value.
 /// -> spec
-#let spec-dictionary(
+#let dict(
   /// Optional display name.
   /// -> str | auto
   __name__: auto,
@@ -420,7 +420,7 @@
 /// Positional and named domain arguments are passed first. The returned function
 /// accepts the codomain spec.
 /// -> function
-#let spec-function(
+#let fun(
   /// Domain argument specs.
   /// -> arguments
   ..dom
@@ -439,7 +439,7 @@
 
 /// Spec for names used by specs.
 /// -> spec
-#let SPEC-NAME = spec-union(str, type(auto))
+#let SPEC-NAME = union(str, type(auto))
 
 /// Spec for function argument specs parameterized by an inner spec.
 /// -> spec
@@ -447,15 +447,15 @@
   /// Spec used for argument entries.
   /// -> spec
   T,
-) = spec-enum(
-  __name__: "args-spec(" + spec-to-string(T) + ")",
+) = enum(
+  __name__: "args-spec(" + to-string(T) + ")",
   ..(
     ("none", none),
     (
       "args",
       (
-        pos: spec-array(T),
-        named: spec-dictionary(str, T),
+        pos: array(T),
+        named: dict(str, T),
       ),
     ),
   ).to-dict(),
@@ -467,14 +467,14 @@
   /// Spec used for field entries.
   /// -> spec
   T,
-) = spec-enum(
-  __name__: "constr-spec(" + spec-to-string(T) + ")",
+) = enum(
+  __name__: "constr-spec(" + to-string(T) + ")",
   ..(
     ("none", none),
     (
       "fields",
       (
-        fields: spec-dictionary(str, T),
+        fields: dict(str, T),
       ),
     ),
   ).to-dict(),
@@ -484,20 +484,20 @@
 ///
 /// Useful for validating that a value is itself a well-formed spec.
 /// -> spec
-#let SPEC = spec-fix(
+#let SPEC = fix(
   __name__: "spec",
-  self => spec-enum(
+  self => enum(
     __name__: "spec-shape",
     empty: none,
     builtin: (name: SPEC-NAME, value: type),
     any: none,
-    enum: (name: SPEC-NAME, constrs: spec-dictionary(str, CONSTR-SPEC(self))),
-    struct: (name: SPEC-NAME, fields: spec-dictionary(str, self)),
-    union: (name: SPEC-NAME, elems: spec-array(self)),
+    enum: (name: SPEC-NAME, constrs: dict(str, CONSTR-SPEC(self))),
+    struct: (name: SPEC-NAME, fields: dict(str, self)),
+    union: (name: SPEC-NAME, elems: array(self)),
     array: (name: SPEC-NAME, inner: self),
     dictionary: (name: SPEC-NAME, key: self, value: self),
     function: (name: SPEC-NAME, dom: ARGS-SPEC(self), cod: self),
-    fix: (name: str, fun: spec-function(self)(self)),
+    fix: (name: str, fun: fun(self)(self)),
     self: (depth: int),
   ),
 )

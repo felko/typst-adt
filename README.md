@@ -34,7 +34,7 @@ constructors and eliminator:
 ```typst
 #import "src/lib.typ": *
 
-#let TOKEN = spec-enum(
+#let TOKEN = adt.enum(
   __name__: "TOKEN",
   eof: none,
   lit: int,
@@ -67,23 +67,23 @@ Specifications describe the shape of values. Most builders accept builtin Typst
 types directly, so `int` is equivalent to a builtin integer spec.
 
 ```typst
-#let INT-OR-STR = spec-union(int, str)
-#let INT-ARRAY = spec-array(int)
-#let STR-INTS = spec-dictionary(str, int)
+#let INT-OR-STR = adt.union(int, str)
+#let INT-ARRAY = adt.array(int)
+#let STR-INTS = dict(str, int)
 
-#let BOX = spec-struct(
+#let BOX = adt.struct(
   __name__: "BOX",
   value: int,
 )
 
-#let ADD = spec-function(int, int)(int)
+#let ADD = fun(int, int)(int)
 ```
 
 Enums use constructor names as named arguments. A constructor can take no value
 with `none`, a single positional value spec, or named fields:
 
 ```typst
-#let SHAPE = spec-enum(
+#let SHAPE = adt.enum(
   __name__: "SHAPE",
   point: none,
   circle: (radius: int),
@@ -100,7 +100,7 @@ Use `validate(spec, value)` to check a value. Validation returns `ok(value)` or
 #assert.eq(validate(int, 4), ok(4))
 #assert(result-is-err(validate(int, "4")))
 
-#let BOX = spec-struct(value: int)
+#let BOX = adt.struct(value: int)
 #assert.eq(validate(BOX, (value: 4)), ok((value: 4)))
 #assert(result-is-err(validate(BOX, (value: "bad"))))
 ```
@@ -122,7 +122,7 @@ Common fields include:
 For structs:
 
 ```typst
-#let PAIR = spec-struct(__name__: "PAIR", left: int, right: int)
+#let PAIR = adt.struct(__name__: "PAIR", left: int, right: int)
 #let (intro: pair, elim: pair-elim) = generate(PAIR)
 
 #assert.eq(pair(2, 3).left, 2)
@@ -133,7 +133,7 @@ For structs:
 For functions:
 
 ```typst
-#let ADD = spec-function(int, int)(int)
+#let ADD = fun(int, int)(int)
 #let (intro: add, elim: apply-add) = generate(ADD)
 
 #assert.eq(add((x, y) => x + y)(2, 3), 5)
@@ -142,14 +142,14 @@ For functions:
 
 ## Recursive Types
 
-Use `spec-fix` to define recursive specifications. Generated values are plain
+Use `adt.fix` to define recursive specifications. Generated values are plain
 data; use the helpers returned by `generate` to eliminate, fold, annotate, or
 validate them.
 
 ```typst
-#let LIST(T) = spec-fix(
-  __name__: "list(" + spec-to-string(T) + ")",
-  self => spec-enum(
+#let LIST(T) = adt.fix(
+  __name__: "list(" + adt.to-string(T) + ")",
+  self => adt.enum(
     nil: none,
     cons: (head: T, tail: self),
   ),

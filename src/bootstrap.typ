@@ -168,13 +168,13 @@
 /// values.
 /// -> function
 #let spec-elim(
-  /// Case for `spec-empty`.
+  /// Case for `adt.empty`.
   /// -> function
   empty_case: auto,
   /// Case for builtin specs.
   /// -> function
   builtin: auto,
-  /// Case for `spec-any`.
+  /// Case for `adt.any`.
   /// -> function
   any: auto,
   /// Case for union specs.
@@ -813,7 +813,7 @@
 /// Shorthand specs are parsed first, so builtin types such as `int` work
 /// directly.
 /// -> str
-#let spec-to-string(
+#let to-string(
   /// Spec or spec shorthand.
   /// -> any
   spec,
@@ -841,7 +841,7 @@
     builtin: type_ => str(type_),
     any: () => "any",
     union_case: (name, elems) => elems
-      .map(elem => spec-to-string(elem, depth: depth))
+      .map(elem => to-string(elem, depth: depth))
       .join(" | "),
     enum: (name, constrs) => (
       "enum {"
@@ -851,7 +851,7 @@
             (
               constr-name
                 + constr-spec-to-string-aux(
-                  spec => spec-to-string(spec, depth: depth),
+                  spec => to-string(spec, depth: depth),
                   constr-spec,
                 )
             )
@@ -864,25 +864,25 @@
         + fields
           .pairs()
           .map(((field-name, field-spec)) => {
-            field-name + ": " + spec-to-string(field-spec, depth: depth)
+            field-name + ": " + to-string(field-spec, depth: depth)
           })
           .join(", ")
         + "}"
     ),
     array_case: (name, inner) => (
-      "array(" + spec-to-string(inner, depth: depth) + ")"
+      "array(" + to-string(inner, depth: depth) + ")"
     ),
     dictionary_case: (name, key, value) => (
       "dictionary("
-        + spec-to-string(key, depth: depth)
+        + to-string(key, depth: depth)
         + ", "
-        + spec-to-string(value, depth: depth)
+        + to-string(value, depth: depth)
         + ")"
     ),
     function_case: (name, dom, cod) => (
-      args-spec-to-string-aux(spec => spec-to-string(spec, depth: depth), dom)
+      args-spec-to-string-aux(spec => to-string(spec, depth: depth), dom)
         + " → "
-        + spec-to-string(cod, depth: depth)
+        + to-string(cod, depth: depth)
     ),
     fix: (name, fun) => {
       let var = "self@" + str(depth)
@@ -890,7 +890,7 @@
         "fix "
           + var
           + ". "
-          + spec-to-string(
+          + to-string(
             (fun)((
               __tag__: "spec/self",
               depth: depth,
@@ -905,7 +905,7 @@
 
 /// Renders an argument spec as a compact string.
 /// -> function
-#let args-spec-to-string = args-spec-to-string-aux.with(spec-to-string)
+#let args-spec-to-string = args-spec-to-string-aux.with(to-string)
 
 
 /// Parses an argument spec using the default spec parser.

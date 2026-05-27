@@ -1,7 +1,7 @@
-#import "../../src/lib.typ": *
+#import "../../src/lib.typ" as adt: ok
 
-#let OPTION(T) = spec-enum(
-  __name__: "OPTION(" + spec-to-string(T) + ")",
+#let OPTION(T) = adt.enum(
+  __name__: "OPTION(" + adt.to-string(T) + ")",
   nothing: none,
   some: T,
 )
@@ -12,20 +12,20 @@
     some: option-some,
   ),
   elim: option-elim,
-) = generate(OPTION(int))
+) = adt.generate(OPTION(int))
 
 #assert.eq(option-nothing.__tag__, "nothing")
 #assert.eq(option-some(4).value, 4)
 #assert.eq(option-elim(nothing: 0, some: value => value)(option-nothing), 0)
 #assert.eq(option-elim(nothing: 0, some: value => value)(option-some(5)), 5)
 
-#let LIST(T) = spec-fix(
-  __name__: "list(" + spec-to-string(T) + ")",
-  self => spec-enum(
+#let LIST(T) = adt.fix(
+  __name__: "list(" + adt.to-string(T) + ")",
+  self => adt.enum(
     __name__: "list.base("
-      + spec-to-string(T)
+      + adt.to-string(T)
       + ", "
-      + spec-to-string(self)
+      + adt.to-string(self)
       + ")",
     nil: none,
     cons: (head: T, tail: self),
@@ -38,29 +38,24 @@
     cons: list-cons,
   ),
   fields: (
-    head: list-head-field,
-    tail: list-tail-field,
+    head: list-head,
+    tail: list-tail,
   ),
   elim: list-elim,
   rec: list-rec,
-) = generate(LIST(int))
+) = adt.generate(LIST(int))
 
 #let one-two = list-cons(1, list-cons(2, list-nil))
 #assert.eq(list-nil.__tag__, "nil")
 #assert.eq(list-cons(head: 1, tail: list-nil).head, 1)
-#assert.eq(validate(LIST(int), one-two), ok((
+#assert.eq(adt.validate(LIST(int), one-two), ok((
   __tag__: "cons",
   head: 1,
   tail: (__tag__: "cons", head: 2, tail: (__tag__: "nil")),
 )))
-#assert.eq(list-head-field(one-two), 1)
-#assert.eq(list-tail-field(one-two).head, 2)
-
-#let list-head = list-elim(
-  nil: none,
-  cons: (head, tail) => head,
-)
 #assert.eq(list-head(one-two), 1)
+#assert.eq(list-tail(one-two).head, 2)
+
 #let list-len = list-rec(
   nil: 0,
   cons: (head, tail-len) => tail-len + 1,
@@ -83,9 +78,9 @@
 
 #assert.eq(list-append(list(1, 2), list(3)), list(1, 2, 3))
 
-#let (annotate: list-annotate) = generate(LIST(int))
-#let SIZED-LIST = spec-annotate(LIST(int), size: int)
-#let (elim: sized-list-elim) = generate(SIZED-LIST)
+#let (annotate: list-annotate) = adt.generate(LIST(int))
+#let SIZED-LIST = adt.annotate(LIST(int), size: int)
+#let (elim: sized-list-elim) = adt.generate(SIZED-LIST)
 
 #let sized = list-annotate(
   __ann__: (size: int),
@@ -95,7 +90,7 @@
 
 #assert.eq(sized.size, 2)
 #assert.eq(sized.tail.size, 1)
-#assert.eq(validate(SIZED-LIST, sized), ok(sized))
+#assert.eq(adt.validate(SIZED-LIST, sized), ok(sized))
 #assert.eq(
   sized-list-elim(
     nil: 0,
@@ -104,7 +99,7 @@
   2,
 )
 
-#let SIZED-SUMMED-LIST = spec-annotate(LIST(int), size: int, sum: int)
+#let SIZED-SUMMED-LIST = adt.annotate(LIST(int), size: int, sum: int)
 
 #let sized-and-summed = list-annotate(
   __ann__: (size: int, sum: int),
@@ -119,18 +114,13 @@
 #assert.eq(sized-and-summed.sum, 3)
 #assert.eq(sized-and-summed.tail.size, 1)
 #assert.eq(sized-and-summed.tail.sum, 2)
-#assert.eq(validate(SIZED-SUMMED-LIST, sized-and-summed), ok(sized-and-summed))
+#assert.eq(adt.validate(SIZED-SUMMED-LIST, sized-and-summed), ok(sized-and-summed))
 
 #let max2(x, y) = if x > y { x } else { y }
 
-#let TREE(T) = spec-fix(
-  __name__: "tree(" + spec-to-string(T) + ")",
-  self => spec-enum(
-    __name__: "tree.base("
-      + spec-to-string(T)
-      + ", "
-      + spec-to-string(self)
-      + ")",
+#let TREE(T) = adt.fix(
+  __name__: "tree(" + adt.to-string(T) + ")",
+  self => adt.enum(
     leaf: T,
     node: (left: self, right: self),
   ),
@@ -144,14 +134,14 @@
   rec: tree-rec,
   elim: tree-elim,
   annotate: tree-annotate,
-) = generate(TREE(str))
+) = adt.generate(TREE(str))
 
 #let tree = tree-node(
   tree-node(tree-leaf("a"), tree-leaf("b")),
   tree-leaf("c"),
 )
 
-#let HEIGHTED-TREE = spec-annotate(TREE(str), height: int)
+#let HEIGHTED-TREE = adt.annotate(TREE(str), height: int)
 
 #let heighted = tree-annotate(
   __ann__: (height: int),
@@ -165,28 +155,51 @@
 #assert.eq(heighted.left.height, 1)
 #assert.eq(heighted.left.left.height, 0)
 #assert.eq(heighted.right.height, 0)
-#assert.eq(validate(HEIGHTED-TREE, heighted), ok(heighted))
+#assert.eq(adt.validate(HEIGHTED-TREE, heighted), ok(heighted))
 
-#let HEIGHTED-DEPTHED-TREE = spec-annotate(TREE(str), height: int, depth: int)
+#let HEIGHTED-DEPTHED-TREE = adt.annotate(TREE(str), height: int, depth: int)
 #let (
   intro: (
     leaf: heighted-depthed-leaf,
     node: heighted-depthed-node,
   ),
-) = generate(HEIGHTED-DEPTHED-TREE)
-#let (rec: heighted-tree-rec) = generate(HEIGHTED-TREE)
+) = adt.generate(HEIGHTED-DEPTHED-TREE)
+#let (rec: heighted-tree-rec) = adt.generate(HEIGHTED-TREE)
 
-#let annotate-depth(tree) = heighted-tree-rec(
-  leaf: (value, height) => depth => heighted-depthed-leaf(
+#let annotate-depth(tree) = tree-rec(
+  leaf: value => depth => tree-leaf(
     value,
-    height,
-    depth,
+    __ann__: (depth: depth,),
   ),
-  node: (left, right, height) => depth => heighted-depthed-node(
+  node: (left, right) => depth => tree-node(
     left(depth + 1),
     right(depth + 1),
-    height,
-    depth,
+    __ann__: (
+      depth: depth,
+    )
+  ),
+)(tree)(0)
+
+#let annotate-depth(tree) = adt.rec(
+  adt.annotate(
+    TREE(str),
+    height: int,
+    depth: int
+  ),
+  leaf: (value, height) => depth => tree-leaf(
+    value,
+    __ann__: (
+      height: height,
+      depth: depth,
+    ),
+  ),
+  node: (left, right, height) => depth => tree-node(
+    left(depth + 1),
+    right(depth + 1),
+    __ann__: (
+      height: height,
+      depth: depth,
+    )
   ),
 )(tree)(0)
 

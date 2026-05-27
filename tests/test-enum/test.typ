@@ -1,6 +1,6 @@
-#import "../../src/lib.typ": *
+#import "../../src/lib.typ" as adt: result-is-err
 
-#let TOKEN = spec-enum(
+#let TOKEN = adt.enum(
   __name__: "TOKEN",
   eof: none,
   lit: int,
@@ -14,7 +14,7 @@
     span: token-span,
   ),
   elim: token-elim,
-) = generate(TOKEN)
+) = adt.generate(TOKEN)
 
 #assert.eq(token-eof.__tag__, "eof")
 #assert.eq(token-lit(3).value, 3)
@@ -30,6 +30,6 @@
 #assert.eq(token-kind(token-eof), "eof")
 #assert.eq(token-kind(token-lit(9)), "lit:9")
 #assert.eq(token-kind(token-span(3, 8)), "span:5")
-#assert(result-is-err(validate(TOKEN, (__tag__: "missing"))))
-#assert(result-is-err(validate-constr(TOKEN.constrs.span, 1)))
-#assert(result-is-err(validate-constr(TOKEN.constrs.span, 1, 2, 3)))
+#assert(result-is-err(adt.validate(TOKEN, (__tag__: "missing"))))
+#assert(result-is-err(adt.validate-constr(TOKEN.constrs.span, 1)))
+#assert(result-is-err(adt.validate-constr(TOKEN.constrs.span, 1, 2, 3)))

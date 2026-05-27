@@ -501,7 +501,7 @@
   /// Result spec for each case.
   /// -> spec
   T,
-) = spec-struct(
+) = adt.struct(
   ..spec-elim(
     empty_case: () => panic("empty specs do not have cases"),
     builtin: type_ => panic("builtin specs do not have cases"),
@@ -510,10 +510,10 @@
     enum: (name, constrs) => constrs
       .pairs()
       .map(((constr-name, constr-spec)) => {
-        (constr-name, spec-function(..constr-spec-args(constr-spec))(T))
+        (constr-name, fun(..constr-spec-args(constr-spec))(T))
       })
       .to-dict(),
-    struct: (name, fields) => (mk: spec-function(..fields)(T)),
+    struct: (name, fields) => (mk: fun(..fields)(T)),
     array_case: (name, inner) => panic("array specs do not have cases"),
     dictionary_case: (name, key, value) => panic(
       "dictionary specs do not have cases",

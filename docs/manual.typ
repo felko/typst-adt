@@ -37,14 +37,14 @@ Use Typst builtin types directly:
 #assert(result-is-err(validate(int, "4")))
 ```
 
-Use `spec-any` when any value is valid, and `spec-empty` when no value is valid.
+Use `adt.any` when any value is valid, and `adt.empty` when no value is valid.
 
 === Structs
 
-Use `spec-struct` for dictionaries with fixed fields.
+Use `adt.struct` for dictionaries with fixed fields.
 
 ```typst
-#let BOX = spec-struct(__name__: "BOX", value: int)
+#let BOX = adt.struct(__name__: "BOX", value: int)
 #let (intro: box, elim: box-elim) = generate(BOX)
 
 #assert.eq(box(4).value, 4)
@@ -54,10 +54,10 @@ Use `spec-struct` for dictionaries with fixed fields.
 
 === Enums
 
-Use `spec-enum` for tagged variants.
+Use `adt.enum` for tagged variants.
 
 ```typst
-#let TOKEN = spec-enum(
+#let TOKEN = adt.enum(
   __name__: "TOKEN",
   eof: none,
   lit: int,
@@ -92,10 +92,10 @@ Constructor shapes:
 
 === Unions
 
-Use `spec-union` when a value may match any of several specs.
+Use `adt.union` when a value may match any of several specs.
 
 ```typst
-#let INT-OR-STR = spec-union(int, str)
+#let INT-OR-STR = adt.union(int, str)
 #let (intro: int-or-str, elim: int-or-str-elim) = generate(INT-OR-STR)
 
 #assert.eq(int-or-str(4), 4)
@@ -104,14 +104,14 @@ Use `spec-union` when a value may match any of several specs.
 #assert(result-is-err(validate(INT-OR-STR, 1pt)))
 ```
 
-Nested unions are flattened. `spec-union()` creates `spec-empty`.
+Nested unions are flattened. `adt.union()` creates `adt.empty`.
 
 === Arrays
 
-Use `spec-array(inner)` for arrays.
+Use `adt.array(inner)` for arrays.
 
 ```typst
-#let INTS = spec-array(int)
+#let INTS = adt.array(int)
 #let (intro: ints, elim: ints-elim) = generate(INTS)
 
 #assert.eq(ints((1, 2, 3)), (1, 2, 3))
@@ -121,10 +121,10 @@ Use `spec-array(inner)` for arrays.
 
 === Dictionaries
 
-Use `spec-dictionary(key, value)` for dictionaries.
+Use `dict(key, value)` for dictionaries.
 
 ```typst
-#let STR-INTS = spec-dictionary(str, int)
+#let STR-INTS = dict(str, int)
 #let (intro: str-ints, elim: str-ints-elim) = generate(STR-INTS)
 
 #assert.eq(str-ints((a: 1, b: 2)).a, 1)
@@ -134,10 +134,10 @@ Use `spec-dictionary(key, value)` for dictionaries.
 
 === Functions
 
-Use `spec-function(..domain)(codomain)` for functions.
+Use `fun(..domain)(codomain)` for functions.
 
 ```typst
-#let ADD = spec-function(int, int)(int)
+#let ADD = fun(int, int)(int)
 #let (intro: add, elim: apply-add) = generate(ADD)
 
 #assert.eq(add((x, y) => x + y)(2, 3), 5)
@@ -147,7 +147,7 @@ Use `spec-function(..domain)(codomain)` for functions.
 Named arguments are supported:
 
 ```typst
-#let NAMED = spec-function(left: int, right: int)(int)
+#let NAMED = fun(left: int, right: int)(int)
 #let (intro: named-add) = generate(NAMED)
 
 #assert.eq(named-add((left: 0, right: 0) => left + right)(
@@ -158,12 +158,12 @@ Named arguments are supported:
 
 == Recursive specs
 
-Use `spec-fix` for recursive data.
+Use `adt.fix` for recursive data.
 
 ```typst
-#let LIST(T) = spec-fix(
-  __name__: "list(" + spec-to-string(T) + ")",
-  self => spec-enum(
+#let LIST(T) = adt.fix(
+  __name__: "list(" + adt.to-string(T) + ")",
+  self => adt.enum(
     nil: none,
     cons: (head: T, tail: self),
   ),
@@ -223,7 +223,7 @@ Generated values are plain data. Use generated helpers explicitly:
 Recursive enum values can be annotated in one pass.
 
 ```typst
-#let SIZED-LIST = spec-annotate(LIST(int), size: int)
+#let SIZED-LIST = adt.annotate(LIST(int), size: int)
 
 #let sized = list-annotate(
   __ann__: (size: int),

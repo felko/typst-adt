@@ -1,16 +1,16 @@
-#import "../../src/lib.typ": *
+#import "../../src/lib.typ" as adt: SPEC, RESULT, ok, result-unwrap
 
-#assert.eq(result-unwrap(spec-parse(RESULT(int))).__tag__, "spec/enum")
-#assert.eq(validate(SPEC, SPEC), ok(SPEC))
-#assert.eq(validate(SPEC, spec-array(int)), ok(spec-array(int)))
-#assert.eq(validate(SPEC, result-unwrap(spec-parse(RESULT(int)))), ok(
-  result-unwrap(spec-parse(RESULT(int))),
+#assert.eq(result-unwrap(adt.spec-parse(RESULT(int))).__tag__, "spec/enum")
+#assert.eq(adt.validate(SPEC, SPEC), ok(SPEC))
+#assert.eq(adt.validate(SPEC, adt.array(int)), ok(adt.array(int)))
+#assert.eq(adt.validate(SPEC, result-unwrap(adt.spec-parse(RESULT(int)))), ok(
+  result-unwrap(adt.spec-parse(RESULT(int))),
 ))
-#assert.eq(validate(SPEC, spec-array(RESULT(int))), ok(spec-array(RESULT(int))))
-#assert.eq(validate(SPEC, spec-struct(x: int)), ok(spec-struct(x: int)))
-#assert.eq(validate(SPEC, spec-function(int)(str)), ok(spec-function(int)(str)))
-#assert.eq(validate(SPEC, spec-dictionary(str, spec-array(int))), ok(
-  spec-dictionary(str, spec-array(int)),
+#assert.eq(adt.validate(SPEC, adt.array(RESULT(int))), ok(adt.array(RESULT(int))))
+#assert.eq(adt.validate(SPEC, adt.struct(x: int)), ok(adt.struct(x: int)))
+#assert.eq(adt.validate(SPEC, adt.fun(int)(str)), ok(adt.fun(int)(str)))
+#assert.eq(adt.validate(SPEC, dict(str, adt.array(int))), ok(
+  dict(str, adt.array(int)),
 ))
 
 #assert.eq(constr-spec-parse(RESULT(int).constrs.ok).value.fields.keys(), (
