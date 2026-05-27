@@ -17,7 +17,7 @@
 /// Converts a constructor spec to function arguments.
 /// -> arguments
 #let constr-spec-args(constr-spec) = constr-spec-elim(
-  none_: arguments(),
+  null: arguments(),
   fields: fields => arguments(..fields),
 )(constr-spec)
 
@@ -39,11 +39,11 @@
       ))
       .to-dict(),
     struct: (name, fields) => (mk: fun(..fields)(T)),
-    array_case: (name, inner) => panic("array specs do not have cases"),
-    dictionary_case: (name, key, value) => panic(
+    array: (name, inner) => panic("array specs do not have cases"),
+    dict: (name, key, value) => panic(
       "dictionary specs do not have cases",
     ),
-    function_case: (name, dom, cod) => panic(
+    function: (name, dom, cod) => panic(
       "function specs do not have cases",
     ),
     fix: (name, fun) => CASES(fun(spec), T),
@@ -111,9 +111,9 @@
       }
     },
   ),
-  array_case: (name, inner) => (elim: generate-value-elim(spec)),
-  dictionary_case: (name, key, inner) => (elim: generate-value-elim(spec)),
-  function_case: (name, dom, cod) => (elim: generate-function-elim(dom, cod)),
+  array: (name, inner) => (elim: generate-value-elim(spec)),
+  dict: (name, key, inner) => (elim: generate-value-elim(spec)),
+  function: (name, dom, cod) => (elim: generate-function-elim(dom, cod)),
   fix: (name, fun) => generate-elim(fun(spec)),
   self: (..args) => (:),
 )(spec)

@@ -16,7 +16,7 @@
   /// -> arguments
   ..args,
 ) = args-spec-elim(
-  none_: {
+  null: {
     if args.pos().len() != 0 or args.named().len() != 0 {
       err("expected no arguments, got `" + repr(args) + "`")
     } else {
@@ -99,7 +99,7 @@
   /// -> arguments
   ..args,
 ) = constr-spec-elim(
-  none_: {
+  null: {
     let named = args.named()
     if args.pos().len() != 0 or named.len() != 0 {
       err("expected no arguments, got `" + repr(args) + "`")
@@ -128,7 +128,7 @@
       }
     }
     if pos.len() > 0 or named.len() > 0 {
-      err("unrecognizd arguments: `" + repr(arguments(..pos, ..named)) + "`")
+      err("unrecognized arguments: `" + repr(arguments(..pos, ..named)) + "`")
     } else {
       ok(fields)
     }
@@ -206,14 +206,14 @@
     ),
     ..value,
   ),
-  array_case: (name, inner) => {
+  array: (name, inner) => {
     if type(value) != type(()) {
       err("expected array, got `" + str(type(value)) + "`")
     } else {
       result-all(validate.with(inner), value)
     }
   },
-  dictionary_case: (name, key, inner) => {
+  dict: (name, key, inner) => {
     if type(value) != dictionary {
       err("expected dictionary, got `" + str(type(value)) + "`")
     } else {
@@ -230,7 +230,7 @@
       )
     }
   },
-  function_case: (name, dom, cod) => {
+  function: (name, dom, cod) => {
     if type(value) == function {
       ok(value)
     } else {
@@ -238,9 +238,7 @@
     }
   },
   fix: (name, fun) => validate(fun(spec), value),
-  self: depth => {
-    panic("todo")
-  },
+  self: depth => panic("cannot validate an unbound recursive self spec"),
 )(spec)
 
 /// Validates function call arguments with the default validator.

@@ -18,7 +18,7 @@
 /// synthesize new annotation fields from a partially annotated input value.
 /// -> RESULT(dictionary)
 #let project-constr-rec(constr-spec, value) = constr-spec-elim(
-  none_: ok((:)),
+  null: ok((:)),
   fields: field-specs => {
     let fields = (:)
     for (field-name, field-spec) in field-specs.pairs() {
@@ -137,7 +137,7 @@
       if type(case) != function {
         return finish(case)
       }
-      let result = if constr-spec.__tag__ == "constr-spec/none" {
+      let result = if constr-spec.__tag__ == "constr-spec/null" {
         case()
       } else if constr-spec.__tag__ == "constr-spec/fields" {
         let mapped = (:)
@@ -173,9 +173,9 @@
   union_case: (name, elems) => (:),
   struct: (name, fields) => (:),
   enum: (name, constrs) => (:),
-  array_case: (name, inner) => (:),
-  dictionary_case: (name, key, inner) => (:),
-  function_case: (name, dom, cod) => (:),
+  array: (name, inner) => (:),
+  dict: (name, key, inner) => (:),
+  function: (name, dom, cod) => (:),
   fix: (name, fun) => spec-elim(
     empty_case: () => (:),
     builtin: type_ => (:),
@@ -183,9 +183,9 @@
     union_case: (name, elems) => (:),
     struct: (name, fields) => (:),
     enum: (name, constrs) => generate-enum-rec(spec, constrs),
-    array_case: (name, inner) => (:),
-    dictionary_case: (name, key, inner) => (:),
-    function_case: (name, dom, cod) => (:),
+    array: (name, inner) => (:),
+    dict: (name, key, inner) => (:),
+    function: (name, dom, cod) => (:),
     fix: (name, fun) => (:),
     self: (..args) => (:),
   )(fun(spec)),

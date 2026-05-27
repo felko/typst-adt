@@ -247,7 +247,7 @@
   /// -> array
   ys,
 ) = {
-  if xs.len() == ys.len() {
+  if xs.len() != ys.len() {
     err("arity mismatch: `" + repr(xs) + "` vs. `" + repr(ys) + "`")
   } else {
     result-all(

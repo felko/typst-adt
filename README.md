@@ -1,38 +1,38 @@
-# typst-meta
+# typst-adt
 
-`typst-meta` is a Typst package for describing and working with algebraic-style
-data types. It lets you define type specifications, validate values against
-those specifications, and generate constructors, eliminators, field accessors,
-and recursive folds for structured Typst data.
+`typst-adt` is a Typst package for describing and working with algebraic data
+types. It provides specifications, runtime validation, generated constructors,
+eliminators, field accessors, recursive folds, and annotation passes for plain
+Typst values.
 
-Featured types:
-
-- builtin Typst types such as `int`, `str`, `array`, ...
-- structs, enums, unions, typed arrays, dictionaries and functions
-- recursive types through fixed points
-- generated introduction and elimination helpers
-- runtime validation with `ok` / `err` result values
-- annotations on recursive enum values
-
-## Installation
-
-For local development, import the package entrypoint directly:
+The Typst package is named `adt`, so published imports can stay short:
 
 ```typst
-#import "src/lib.typ": *
+#import "@preview/adt:0.1.0" as adt: ok, result-is-err
 ```
 
-From another Typst project, copy or vendor this package and import
-`src/lib.typ`, or install it as a local Typst package once you have chosen a
-package namespace.
+For local development, import the entrypoint directly:
+
+```typst
+#import "src/lib.typ" as adt: ok, result-is-err
+```
+
+## Features
+
+- Builtin Typst types such as `int`, `str`, `array`, and `dictionary`.
+- Structs, enums, unions, typed arrays, dictionaries, and functions.
+- Recursive types through fixed-point specs.
+- Generated constructors, eliminators, field accessors, and recursive folds.
+- Runtime validation with `ok` / `err` result values.
+- Annotation passes for recursive enum values.
 
 ## Quick Start
 
-Define a specification, generate helpers from it, and use the generated
-constructors and eliminator:
+Define a spec, generate helpers from it, and use the generated constructors and
+eliminator:
 
 ```typst
-#import "src/lib.typ": *
+#import "src/lib.typ" as adt
 
 #let TOKEN = adt.enum(
   __name__: "TOKEN",
@@ -48,7 +48,7 @@ constructors and eliminator:
     span: token-span,
   ),
   elim: token-elim,
-) = generate(TOKEN)
+) = adt.generate(TOKEN)
 
 #let token-kind = token-elim(
   eof: "eof",
@@ -61,26 +61,25 @@ constructors and eliminator:
 #assert.eq(token-kind(token-span(3, 8)), "span:5")
 ```
 
-## Specifications
+## Specs
 
-Specifications describe the shape of values. Most builders accept builtin Typst
-types directly, so `int` is equivalent to a builtin integer spec.
+Specs describe the shape of values. Most builders accept builtin Typst types
+directly, so `int` is equivalent to `adt.builtin(int)`.
 
 ```typst
 #let INT-OR-STR = adt.union(int, str)
 #let INT-ARRAY = adt.array(int)
-#let STR-INTS = dict(str, int)
+#let STR-INTS = adt.dict(str, int)
+#let ADD = adt.fun(int, int)(int)
 
 #let BOX = adt.struct(
   __name__: "BOX",
   value: int,
 )
-
-#let ADD = fun(int, int)(int)
 ```
 
-Enums use constructor names as named arguments. A constructor can take no value
-with `none`, a single positional value spec, or named fields:
+Enums use constructor names as named arguments. A constructor can be `none`, a
+single value spec, or named fields:
 
 ```typst
 #let SHAPE = adt.enum(
@@ -93,37 +92,40 @@ with `none`, a single positional value spec, or named fields:
 
 ## Validation
 
-Use `validate(spec, value)` to check a value. Validation returns `ok(value)` or
-`err(message)`, so callers can handle failures without immediately panicking.
+Use `adt.validate(spec, value)` to check a value. Validation returns
+`ok(value)` or `err(message)`, so callers can handle failures without
+immediately panicking.
 
 ```typst
-#assert.eq(validate(int, 4), ok(4))
-#assert(result-is-err(validate(int, "4")))
+#import "src/lib.typ" as adt: ok, result-is-err
+
+#assert.eq(adt.validate(int, 4), ok(4))
+#assert(result-is-err(adt.validate(int, "4")))
 
 #let BOX = adt.struct(value: int)
-#assert.eq(validate(BOX, (value: 4)), ok((value: 4)))
-#assert(result-is-err(validate(BOX, (value: "bad"))))
+#assert.eq(adt.validate(BOX, (value: 4)), ok((value: 4)))
+#assert(result-is-err(adt.validate(BOX, (value: "bad"))))
 ```
 
-Use `result-unwrap(result)` when you want to panic on an error and continue with
-the validated value.
+Use `adt.result-unwrap(result)` when you want to panic on an error and continue
+with the validated value.
 
 ## Generated Helpers
 
-`generate(spec)` returns a dictionary of helpers depending on the spec kind.
+`adt.generate(spec)` returns a dictionary of helpers depending on the spec kind.
 Common fields include:
 
-- `intro`: a constructor or group of constructors
-- `elim`: an eliminator or pattern-match-style dispatcher
-- `fields`: generated field accessors for structs and enums
-- `rec`: a recursive fold for recursive enum specs
-- `annotate`: a recursive annotation pass for recursive enum specs
+- `intro`: a constructor or group of constructors.
+- `elim`: an eliminator or pattern-match-style dispatcher.
+- `fields`: generated field accessors for structs and enums.
+- `rec`: a recursive fold for recursive enum specs.
+- `annotate`: a recursive annotation pass for recursive enum specs.
 
 For structs:
 
 ```typst
 #let PAIR = adt.struct(__name__: "PAIR", left: int, right: int)
-#let (intro: pair, elim: pair-elim) = generate(PAIR)
+#let (intro: pair, elim: pair-elim) = adt.generate(PAIR)
 
 #assert.eq(pair(2, 3).left, 2)
 #assert.eq(pair(left: 4, right: 5).right, 5)
@@ -133,8 +135,8 @@ For structs:
 For functions:
 
 ```typst
-#let ADD = fun(int, int)(int)
-#let (intro: add, elim: apply-add) = generate(ADD)
+#let ADD = adt.fun(int, int)(int)
+#let (intro: add, elim: apply-add) = adt.generate(ADD)
 
 #assert.eq(add((x, y) => x + y)(2, 3), 5)
 #assert.eq(apply-add(add((x, y) => x * y))(4, 5), 20)
@@ -142,9 +144,9 @@ For functions:
 
 ## Recursive Types
 
-Use `adt.fix` to define recursive specifications. Generated values are plain
-data; use the helpers returned by `generate` to eliminate, fold, annotate, or
-validate them.
+Use `adt.fix` to define recursive specs. Generated values are plain data; use
+the helpers returned by `adt.generate` to eliminate, fold, annotate, or validate
+them.
 
 ```typst
 #let LIST(T) = adt.fix(
@@ -161,7 +163,7 @@ validate them.
     cons: list-cons,
   ),
   rec: list-rec,
-) = generate(LIST(int))
+) = adt.generate(LIST(int))
 
 #let list(..args) = {
   let xs = list-nil
@@ -179,31 +181,40 @@ validate them.
 #assert.eq(list-len(list(1, 2, 3)), 3)
 ```
 
-## Result Helpers
+Use `adt.rec(spec, ..cases)` when you want a recursive fold without first
+destructuring `adt.generate(spec)`.
+
+## Results
 
 The package includes a small result type:
 
 ```typst
-#let value = ok(4)
+#let value = adt.ok(4)
 #assert.eq(value.value, 4)
 
-#let failure = err("expected int")
-#assert(result-is-err(failure))
+#let failure = adt.err("expected int")
+#assert(adt.result-is-err(failure))
 ```
 
-Useful helpers include `result-map`, `result-map2`, `result-all`,
-`result-all-dict`, `result-any`, `result-and-then`, and `result-unwrap`.
+Useful helpers include `adt.result-map`, `adt.result-map2`, `adt.result-all`,
+`adt.result-all-dict`, `adt.result-any`, `adt.result-and-then`, and
+`adt.result-unwrap`.
 
 ## Development
 
-The test suite is organized via [`tytanic`](https://github.com/typst-community/tytanic), execute `tt run` to run the test suite.
+The test suite uses [`tytanic`](https://github.com/typst-community/tytanic):
+
+```sh
+tt run
+```
 
 ## Repository Layout
 
-- `src/lib.typ`: package entrypoint
-- `src/spec.typ`: public spec constructors and meta-specs
-- `src/validate.typ`: validation logic
-- `src/generate.typ`: helper generation
-- `src/result.typ`: result type and combinators
-- `src/bootstrap.typ`: parsing, eliminators, and string rendering for specs
-- `tests/`: assertion-based Typst examples
+- `src/lib.typ`: package entrypoint.
+- `src/spec.typ`: public spec constructors and meta specs.
+- `src/validate.typ`: validation logic.
+- `src/generate.typ`: helper generation facade.
+- `src/methods/`: generated helper families.
+- `src/result.typ`: result type and combinators.
+- `src/bootstrap.typ`: parsing, eliminators, and string rendering for specs.
+- `tests/`: assertion-based Typst examples.

@@ -10,9 +10,9 @@
   union_case: (name, elems) => false,
   enum: (name, constrs) => false,
   struct: (name, fields) => false,
-  array_case: (name, inner) => false,
-  dictionary_case: (name, key, value) => false,
-  function_case: (name, dom, cod) => false,
+  array: (name, inner) => false,
+  dict: (name, key, value) => false,
+  function: (name, dom, cod) => false,
   fix: (name, fun) => true,
   self: depth => false,
 )(spec)
@@ -23,7 +23,7 @@
 /// forcing validation of the whole recursive shape.
 /// -> RESULT(dictionary)
 #let project-constr-args(constr-spec, ..args) = constr-spec-elim(
-  none_: {
+  null: {
     let named = args.named()
     if args.pos().len() != 0 or named.len() != 0 {
       err("expected no arguments, got `" + repr(args) + "`")
@@ -70,7 +70,7 @@
       fields.insert(ann-name, ann-value)
     }
     if pos.len() > 0 or named.len() > 0 {
-      err("unrecognizd arguments: `" + repr(arguments(..pos, ..named)) + "`")
+      err("unrecognized arguments: `" + repr(arguments(..pos, ..named)) + "`")
     } else {
       ok(fields)
     }
@@ -82,7 +82,7 @@
 /// Prefer generated constructors from `generate` for user-facing values.
 /// -> function | dictionary
 #let generate-constr(tag, constr-spec) = constr-spec-elim(
-  none_: if tag == none { (:) } else { (__tag__: tag) },
+  null: if tag == none { (:) } else { (__tag__: tag) },
   fields: _ => {
     if tag == none {
       (..args) => result-unwrap(validate-constr(constr-spec, ..args))
@@ -100,7 +100,7 @@
 /// Generated constructors return plain values and do not attach methods.
 /// -> function | dictionary
 #let generate-constr-with-spec(tag, constr-spec) = constr-spec-elim(
-  none_: if tag == none { (:) } else { (__tag__: tag) },
+  null: if tag == none { (:) } else { (__tag__: tag) },
   fields: _ => {
     if tag == none {
       (..args) => result-unwrap(project-constr-args(constr-spec, ..args))
@@ -133,7 +133,7 @@
 /// Extra fields are ignored.
 /// -> RESULT(dictionary)
 #let project-constr(constr-spec, value) = constr-spec-elim(
-  none_: ok((:)),
+  null: ok((:)),
   fields: field-specs => {
     let fields = (:)
     for (field-name, field-spec) in field-specs.pairs() {

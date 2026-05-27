@@ -8,7 +8,7 @@
 #assert(result-is-err(adt.validate(adt.array(int), (1, "bad"))))
 
 #let tree = ((), ((), (), ((), ((),)), ()))
-#assert.eq(adt.validate(adt.fix(adt.array), tree), ok(tree)))
+#assert.eq(adt.validate(adt.fix(adt.array), tree), ok(tree))
 
 #let nested = adt.array(adt.array(int))
 #let (intro: nested-intro, elim: nested-elim) = adt.generate(nested)

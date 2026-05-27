@@ -8,34 +8,34 @@
 }
 
 /// Dispatches on an argument spec.
-/// -> spec => any
+/// -> function
 #let args-spec-elim(
   /// Case for no arguments.
   /// -> function | any | auto
-  none_: auto,
+  null: auto,
   /// Case for positional and named arguments.
-  /// -> {pos: list(spec), args: }) | any | auto
+  /// -> function | any | auto
   args: auto,
 ) = args-spec => {
-  if none_ == auto and args == auto {
-    panic("missing cases: `none_`, `args`")
-  } else if none_ == auto {
-    panic("missing case: `none_`")
+  if null == auto and args == auto {
+    panic("missing cases: `null`, `args`")
+  } else if null == auto {
+    panic("missing case: `null`")
   } else if args == auto {
     panic("missing case: `args`")
   }
   if args-spec == none {
-    ok((__tag__: "args-spec/none"))
+    ok((__tag__: "args-spec/null"))
   } else if type(args-spec) == dictionary {
     if args-spec.keys().contains("__tag__") {
       if args-spec.__tag__.starts-with("args-spec/") {
         let tag = args-spec.remove("__tag__")
-        if tag == "args-spec/none" {
+        if tag == "args-spec/null" {
           if args-spec.len() == 0 {
-            none_()
+            null()
           } else {
             err(
-              "too many fields in `args-spec/none`: "
+              "too many fields in `args-spec/null`: "
                 + constr-spec.keys().map(key => "`" + key + "`").join(", "),
             )
           }
@@ -78,25 +78,25 @@
 
 /// Dispatches on a constructor spec.
 ///
-/// Pass `none_:` and `fields:` cases. Cases may be functions or constants.
+/// Pass `null:` and `fields:` cases. Cases may be functions or constants.
 /// -> function
 #let constr-spec-elim(
   /// Case for constructors with no fields.
   /// -> function | any | auto
-  none_: auto,
+  null: auto,
   /// Case for constructors with fields.
   /// -> function | any | auto
   fields: auto,
 ) = constr-spec => {
-  if none_ == auto and fields == auto {
-    panic("missing cases: `none_`, `fields`")
-  } else if none_ == auto {
-    panic("missing case: `none_`")
+  if null == auto and fields == auto {
+    panic("missing cases: `null`, `fields`")
+  } else if null == auto {
+    panic("missing case: `null`")
   } else if fields == auto {
     panic("missing case: `fields`")
   }
   if constr-spec == none {
-    ok((__tag__: "constr-spec/none"))
+    ok((__tag__: "constr-spec/null"))
   } else if type(constr-spec) == arguments {
     if constr-spec.pos().len() == 0 {
       result-map(
@@ -120,16 +120,16 @@
     if constr-spec.keys().contains("__tag__") {
       if constr-spec.__tag__.starts-with("constr-spec/") {
         let tag = constr-spec.remove("__tag__")
-        if tag == "constr-spec/none" {
+        if tag == "constr-spec/null" {
           if constr-spec.len() == 0 {
-            if type(none_) == function {
-              none_()
+            if type(null) == type(() => none) {
+              null()
             } else {
-              none_
+              null
             }
           } else {
             err(
-              "too many fields in `constr-spec/none`: "
+              "too many fields in `constr-spec/null`: "
                 + constr-spec.keys().map(key => "`" + key + "`").join(", "),
             )
           }
@@ -148,14 +148,13 @@
             )
           }
         } else {
-          panic("todo")
+          panic("unknown constructor spec kind: `" + tag + "`")
         }
       } else {
-        let x = constr-spec
-        panic("todo")
+        panic("invalid constructor spec tag: `" + constr-spec.__tag__ + "`")
       }
     } else {
-      panic("todo")
+      panic("dictionary constructor specs must contain `__tag__`")
     }
   } else {
     panic("invalid constr spec: `" + repr(constr-spec) + "`")
@@ -188,13 +187,13 @@
   struct: auto,
   /// Case for array specs.
   /// -> function
-  array_case: auto,
+  array: auto,
   /// Case for dictionary specs.
   /// -> function
-  dictionary_case: auto,
+  dict: auto,
   /// Case for function specs.
   /// -> function
-  function_case: auto,
+  function: auto,
   /// Case for fixed-point specs.
   /// -> function
   fix: auto,
@@ -209,9 +208,9 @@
     union: union_case,
     enum: enum,
     struct: struct,
-    array: array_case,
-    dictionary: dictionary_case,
-    function: function_case,
+    array: array,
+    dictionary: dict,
+    function: function,
     self: self,
     fix: fix,
   )
@@ -259,7 +258,7 @@
           panic("expected type in `spec/builtin`, got `" + repr(value) + "`")
         }
       } else if tag == "spec/any" {
-        if type(any) == function {
+        if type(any) == type(() => none) {
           any()
         } else {
           any
@@ -289,7 +288,7 @@
         }
         let name = spec.remove("name", default: auto)
         let elems = spec.remove("elems")
-        if type(elems) == array {
+        if type(elems) == type(()) {
           if spec.len() == 0 {
             union_case(name, elems)
           } else {
@@ -301,7 +300,7 @@
         } else {
           panic(
             "expected array for `spec/union` elements, got `"
-              + repr(elems)
+              + str(type(elems))
               + "`",
           )
         }
@@ -326,43 +325,43 @@
           )
         }
       } else if tag == "spec/array" {
-        if array_case == auto {
+        if array == auto {
           panic("missing case: `array`")
         }
         let name = spec.remove("name", default: auto)
         let inner = spec.remove("inner")
         if spec.len() == 0 {
-          array_case(name, inner)
+          array(name, inner)
         } else {
           panic(
             "too many fields in `spec/array`: "
               + spec.keys().map(key => "`" + key + "`").join(", "),
           )
         }
-      } else if tag == "spec/dictionary" {
-        if dictionary_case == auto {
+      } else if tag == "spec/dict" {
+        if dict == auto {
           panic("missing case: `dictionary`")
         }
         let name = spec.remove("name", default: auto)
         let key = spec.remove("key")
         let value = spec.remove("value")
         if spec.len() == 0 {
-          dictionary_case(name, key, value)
+          dict(name, key, value)
         } else {
           panic(
-            "too many fields in `spec/dictionary`: "
+            "too many fields in `spec/dict`: "
               + spec.keys().map(key => "`" + key + "`").join(", "),
           )
         }
       } else if tag == "spec/function" {
-        if function_case == auto {
+        if function == auto {
           panic("missing case: `function`")
         }
         let name = spec.remove("name", default: auto)
         let dom = spec.remove("dom")
         let cod = spec.remove("cod")
         if spec.len() == 0 {
-          function_case(name, dom, cod)
+          function(name, dom, cod)
         } else {
           panic(
             "too many fields in `spec/function`: "
@@ -378,7 +377,7 @@
           if spec.len() == 0 {
             fix(name, fun)
           } else {
-            erpanicr(
+            panic(
               "too many fields in `spec/fix`: "
                 + spec.keys().map(key => "`" + key + "`").join(", "),
             )
@@ -388,7 +387,7 @@
         panic("unknown spec kind: `" + tag + "`")
       }
     } else {
-      panic("todo")
+      panic("dictionary specs must contain a `spec/` tag")
     }
   } else {
     panic("ill-formed spec: `" + repr(spec) + "`")
@@ -407,7 +406,7 @@
   /// -> args-spec
   args-spec,
 ) = {
-  if args-spec.__tag__ == "args-spec/none" {
+  if args-spec.__tag__ == "args-spec/null" {
     ""
   } else if args-spec.__tag__ == "args-spec/args" {
     (
@@ -440,7 +439,7 @@
   /// -> constr-spec
   constr-spec,
 ) = {
-  if constr-spec.__tag__ == "constr-spec/none" {
+  if constr-spec.__tag__ == "constr-spec/null" {
     ""
   } else if constr-spec.__tag__ == "constr-spec/fields" {
     (
@@ -473,17 +472,17 @@
   args-spec,
 ) = {
   if args-spec == none {
-    ok((__tag__: "args-spec/none"))
+    ok((__tag__: "args-spec/null"))
   } else if type(args-spec) == dictionary {
     if args-spec.keys().contains("__tag__") {
       if args-spec.__tag__.starts-with("args-spec/") {
         let tag = args-spec.remove("__tag__")
-        if tag == "args-spec/none" {
+        if tag == "args-spec/null" {
           if args-spec.len() == 0 {
-            ok((__tag__: "args-spec/none"))
+            ok((__tag__: "args-spec/null"))
           } else {
             err(
-              "too many fields in `args-spec/none`: "
+              "too many fields in `args-spec/null`: "
                 + constr-spec.keys().map(key => "`" + key + "`").join(", "),
             )
           }
@@ -553,19 +552,19 @@
   constr-spec,
 ) = {
   if constr-spec == none {
-    ok((__tag__: "constr-spec/none"))
+    ok((__tag__: "constr-spec/null"))
   } else if type(constr-spec) == dictionary {
     if (
       constr-spec.keys().contains("__tag__")
         and constr-spec.__tag__.starts-with("constr-spec/")
     ) {
       let tag = constr-spec.remove("__tag__")
-      if tag == "constr-spec/none" {
+      if tag == "constr-spec/null" {
         if constr-spec.len() == 0 {
-          ok((__tag__: "constr-spec/none"))
+          ok((__tag__: "constr-spec/null"))
         } else {
           err(
-            "too many fields in `constr-spec/none`: "
+            "too many fields in `constr-spec/null`: "
               + constr-spec.keys().map(key => "`" + key + "`").join(", "),
           )
         }
@@ -635,7 +634,7 @@
 ) = {
   if type(spec) == type {
     ok((__tag__: "spec/builtin", name: str(spec), value: spec))
-  } else if type(spec) == function {
+  } else if type(spec) == type(() => none) {
     ok(spec)
   } else if type(spec) == dictionary {
     if spec.keys().contains("__tag__") and spec.__tag__.starts-with("spec/") {
@@ -694,7 +693,7 @@
       } else if tag == "spec/union" {
         let name = spec.remove("name", default: auto)
         let elems = spec.remove("elems")
-        if type(elems) == array {
+        if type(elems) == type(()) {
           if spec.len() == 0 {
             result-map(
               elems => (__tag__: "spec/union", name: name, elems: elems),
@@ -727,14 +726,14 @@
               + spec.keys().map(key => "`" + key + "`").join(", "),
           )
         }
-      } else if tag == "spec/dictionary" {
+      } else if tag == "spec/dict" {
         let name = spec.remove("name", default: auto)
         let key = spec.remove("key")
         let value = spec.remove("value")
         if spec.len() == 0 {
           result-map2(
             (key, value) => (
-              __tag__: "spec/dictionary",
+              __tag__: "spec/dict",
               name: name,
               key: key,
               value: value,
@@ -744,7 +743,7 @@
           )
         } else {
           err(
-            "too many fields in `spec/dictionary`: "
+            "too many fields in `spec/dict`: "
               + spec.keys().map(key => "`" + key + "`").join(", "),
           )
         }
@@ -869,17 +868,17 @@
           .join(", ")
         + "}"
     ),
-    array_case: (name, inner) => (
+    array: (name, inner) => (
       "array(" + to-string(inner, depth: depth) + ")"
     ),
-    dictionary_case: (name, key, value) => (
+    dict: (name, key, value) => (
       "dictionary("
         + to-string(key, depth: depth)
         + ", "
         + to-string(value, depth: depth)
         + ")"
     ),
-    function_case: (name, dom, cod) => (
+    function: (name, dom, cod) => (
       args-spec-to-string-aux(spec => to-string(spec, depth: depth), dom)
         + " → "
         + to-string(cod, depth: depth)

@@ -46,9 +46,9 @@
     let intros = generate-enum-intros(spec, constrs)
     (intro: intros, intros: intros)
   },
-  array_case: (name, inner) => (intro: generate-value-intro(spec)),
-  dictionary_case: (name, key, inner) => (intro: generate-value-intro(spec)),
-  function_case: (name, dom, cod) => (intro: generate-function-intro(dom, cod)),
+  array: (name, inner) => (intro: generate-value-intro(spec)),
+  dict: (name, key, inner) => (intro: generate-value-intro(spec)),
+  function: (name, dom, cod) => (intro: generate-function-intro(dom, cod)),
   fix: (name, fun) => spec-elim(
     empty_case: () => (:),
     builtin: type_ => (:),
@@ -64,9 +64,9 @@
       let intros = generate-enum-intros(spec, constrs)
       (intro: intros, intros: intros)
     },
-    array_case: (name, inner) => (:),
-    dictionary_case: (name, key, value) => (:),
-    function_case: (name, dom, cod) => (:),
+    array: (name, inner) => (:),
+    dict: (name, key, value) => (:),
+    function: (name, dom, cod) => (:),
     fix: (name, fun) => (:),
     self: (..args) => (:),
   )(fun(spec)),

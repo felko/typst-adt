@@ -22,7 +22,7 @@
 
 /// Argument spec for functions that take no arguments.
 /// -> args-spec
-#let args-spec-none = (__tag__: "args-spec/none")
+#let args-spec-null = (__tag__: "args-spec/null")
 
 /// Builds an argument spec from positional and named specs.
 ///
@@ -46,7 +46,7 @@
 
 /// Constructor spec for constructors with no fields.
 /// -> constr-spec
-#let constr-spec-none = (__tag__: "constr-spec/none")
+#let constr-spec-null = (__tag__: "constr-spec/null")
 
 /// Builds a constructor spec from named field specs.
 ///
@@ -187,23 +187,6 @@
   )
 }
 
-/// Wraps a spec-producing function.
-///
-/// A functor stores a function that can later be applied to produce a spec.
-/// -> spec
-#let functor(
-  /// Optional display name.
-  /// -> str | auto
-  __name__: auto,
-  /// Spec-producing function.
-  /// -> function
-  fun,
-) = (
-  __tag__: "spec/functor",
-  name: __name__,
-  apply: fun,
-)
-
 /// Builds a recursive spec as a fixed point.
 ///
 /// - `fun`: Function from the recursive self spec to the unfolded base spec.
@@ -265,7 +248,7 @@
         .map(((constr-name, constr-spec)) => (
           constr-name,
           constr-spec-elim(
-            none_: (__tag__: "constr-spec/fields", fields: ann-fields),
+            null: (__tag__: "constr-spec/fields", fields: ann-fields),
             fields: fields => (
               __tag__: "constr-spec/fields",
               fields: add-fields(fields),
@@ -279,11 +262,11 @@
       name: name,
       fields: add-fields(fields),
     ),
-    array_case: (name, inner) => panic("cannot annotate array spec"),
-    dictionary_case: (name, key, value) => panic(
+    array: (name, inner) => panic("cannot annotate array spec"),
+    dict: (name, key, value) => panic(
       "cannot annotate dictionary spec",
     ),
-    function_case: (name, dom, cod) => panic("cannot annotate function spec"),
+    function: (name, dom, cod) => panic("cannot annotate function spec"),
     fix: (name, fun) => fix(
       __name__: name,
       self => add-ann(fun(self)),
@@ -308,9 +291,9 @@
   union_case: (name, elems) => elems,
   enum: (name, constrs) => (spec,),
   struct: (name, fields) => (spec,),
-  array_case: (name, inner) => (spec,),
-  dictionary_case: (name, key, value) => (spec,),
-  function_case: (name, dom, cod) => (spec,),
+  array: (name, inner) => (spec,),
+  dict: (name, key, value) => (spec,),
+  function: (name, dom, cod) => (spec,),
   fix: (name, fun) => (spec,),
   self: depth => (spec,),
 )(spec)
@@ -405,7 +388,7 @@
 ) = {
   result-unwrap(result-map2(
     (key, value) => (
-      __tag__: "spec/dictionary",
+      __tag__: "spec/dict",
       name: __name__,
       key: key,
       value: value,
@@ -449,16 +432,11 @@
   T,
 ) = enum(
   __name__: "args-spec(" + to-string(T) + ")",
-  ..(
-    ("none", none),
-    (
-      "args",
-      (
-        pos: array(T),
-        named: dict(str, T),
-      ),
-    ),
-  ).to-dict(),
+  null: none,
+  args: (
+    pos: array(T),
+    named: dict(str, T),
+  ),
 )
 
 /// Spec for constructor specs parameterized by an inner spec.
@@ -469,15 +447,10 @@
   T,
 ) = enum(
   __name__: "constr-spec(" + to-string(T) + ")",
-  ..(
-    ("none", none),
-    (
-      "fields",
-      (
-        fields: dict(str, T),
-      ),
-    ),
-  ).to-dict(),
+  null: none,
+  fields: (
+    fields: dict(str, T),
+  ),
 )
 
 /// Meta-spec describing valid specs.
@@ -495,7 +468,7 @@
     struct: (name: SPEC-NAME, fields: dict(str, self)),
     union: (name: SPEC-NAME, elems: array(self)),
     array: (name: SPEC-NAME, inner: self),
-    dictionary: (name: SPEC-NAME, key: self, value: self),
+    dict: (name: SPEC-NAME, key: self, value: self),
     function: (name: SPEC-NAME, dom: ARGS-SPEC(self), cod: self),
     fix: (name: str, fun: fun(self)(self)),
     self: (depth: int),

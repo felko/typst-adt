@@ -1,11 +1,11 @@
 [package]
-name = "meta"
+name = "adt"
 version = "0.1.0"
 compiler = "0.14.2"
 entrypoint = "src/lib.typ"
 authors = ["felko"]
 license = "MIT"
-description = "An implementation of algebraic datatypes"
+description = "Algebraic data types, validation, and generated helpers"
 repository = "https://github.com/felko/typst-adt"
 categories = ["model", "scripting"]
 keywords = [

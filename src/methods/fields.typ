@@ -62,9 +62,9 @@
       .to-dict(),
   ),
   enum: (name, constrs) => generate-enum-fields(spec, constrs),
-  array_case: (name, inner) => (:),
-  dictionary_case: (name, key, inner) => (:),
-  function_case: (name, dom, cod) => (:),
+  array: (name, inner) => (:),
+  dict: (name, key, inner) => (:),
+  function: (name, dom, cod) => (:),
   fix: (name, fun) => generate-fields(fun(spec)),
   self: (..args) => (:),
 )(spec)
