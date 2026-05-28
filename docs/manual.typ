@@ -33,13 +33,13 @@ It has the following properties:
 #let ARGS-SPEC(SPEC) = adt.enum(
   __name__: "args-spec(" + adt.to-string(SPEC) + ")",
   null: none,
-  args: (pos: adt.array(SPEC), named: adt.dict(str, SPEC)),
+  args: (pos: adt.array(SPEC), named: adt.dict(SPEC)),
 )
 
 #let CONSTR-SPEC(SPEC) = adt.enum(
   __name__: "constr-spec(" + adt.to-string(SPEC) + ")",
   null: none,
-  fields: (fields: adt.dict(str, SPEC)),
+  fields: (fields: adt.dict(SPEC)),
 )
 
 #let SPEC = adt.fix(
@@ -49,11 +49,11 @@ It has the following properties:
     empty: none,
     builtin: (name: SPEC-NAME, value: type),
     any: none,
-    enum: (name: SPEC-NAME, constrs: adt.dict(str, CONSTR-SPEC(self))),
-    struct: (name: SPEC-NAME, fields: adt.dict(str, self)),
+    enum: (name: SPEC-NAME, constrs: adt.dict(CONSTR-SPEC(self))),
+    struct: (name: SPEC-NAME, fields: adt.dict(self)),
     union: (name: SPEC-NAME, elems: adt.array(self)),
     array: (name: SPEC-NAME, inner: self),
-    dict: (name: SPEC-NAME, key: self, value: self),
+    dict: (name: SPEC-NAME, value: self),
     function: (name: SPEC-NAME, dom: ARGS-SPEC(self), cod: self),
     fix: (name: str, fun: adt.fun(self)(self)),
     self: (depth: int),
@@ -162,10 +162,10 @@ Use `adt.array(inner)` for arrays.
 
 === Dictionaries
 
-Use `adt.dict(key, value)` for dictionaries.
+Use `adt.dict(value)` for string-keyed dictionaries.
 
 ```typst
-#let STR-INTS = adt.dict(str, int)
+#let STR-INTS = adt.dict(int)
 #let (intro: str-ints, elim: str-ints-elim) = adt.generate(STR-INTS)
 
 #assert.eq(str-ints((a: 1, b: 2)).a, 1)
@@ -281,8 +281,6 @@ Recursive enum values can be annotated in one pass.
 ```
 
 == Results
-
-Results are plain dictionaries tagged as `result/ok` or `result/err`. They are working result types so feel free to use them, but their purpose is to help with the internals of validation.
 
 ```typst
 #let good = ok(4)

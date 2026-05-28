@@ -11,7 +11,7 @@
   enum: (name, constrs) => false,
   struct: (name, fields) => false,
   array: (name, inner) => false,
-  dict: (name, key, value) => false,
+  dict: (name, value) => false,
   function: (name, dom, cod) => false,
   fix: (name, fun) => true,
   self: depth => false,

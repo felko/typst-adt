@@ -174,7 +174,7 @@
   struct: (name, fields) => (:),
   enum: (name, constrs) => (:),
   array: (name, inner) => (:),
-  dict: (name, key, inner) => (:),
+  dict: (name, inner) => (:),
   function: (name, dom, cod) => (:),
   fix: (name, fun) => spec-elim(
     empty_case: () => (:),
@@ -184,7 +184,7 @@
     struct: (name, fields) => (:),
     enum: (name, constrs) => generate-enum-rec(spec, constrs),
     array: (name, inner) => (:),
-    dict: (name, key, inner) => (:),
+    dict: (name, inner) => (:),
     function: (name, dom, cod) => (:),
     fix: (name, fun) => (:),
     self: (..args) => (:),

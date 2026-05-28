@@ -343,10 +343,9 @@
           panic("missing case: `dictionary`")
         }
         let name = spec.remove("name", default: auto)
-        let key = spec.remove("key")
         let value = spec.remove("value")
         if spec.len() == 0 {
-          dict(name, key, value)
+          dict(name, value)
         } else {
           panic(
             "too many fields in `spec/dict`: "
@@ -728,17 +727,14 @@
         }
       } else if tag == "spec/dict" {
         let name = spec.remove("name", default: auto)
-        let key = spec.remove("key")
         let value = spec.remove("value")
         if spec.len() == 0 {
-          result-map2(
-            (key, value) => (
+          result-map(
+            value => (
               __tag__: "spec/dict",
               name: name,
-              key: key,
               value: value,
             ),
-            spec-parse(key),
             spec-parse(value),
           )
         } else {
@@ -871,12 +867,8 @@
     array: (name, inner) => (
       "array(" + to-string(inner, depth: depth) + ")"
     ),
-    dict: (name, key, value) => (
-      "dictionary("
-        + to-string(key, depth: depth)
-        + ", "
-        + to-string(value, depth: depth)
-        + ")"
+    dict: (name, value) => (
+      "dict(" + to-string(value, depth: depth) + ")"
     ),
     function: (name, dom, cod) => (
       args-spec-to-string-aux(spec => to-string(spec, depth: depth), dom)

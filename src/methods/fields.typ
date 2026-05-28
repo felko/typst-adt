@@ -63,7 +63,7 @@
   ),
   enum: (name, constrs) => generate-enum-fields(spec, constrs),
   array: (name, inner) => (:),
-  dict: (name, key, inner) => (:),
+  dict: (name, inner) => (:),
   function: (name, dom, cod) => (:),
   fix: (name, fun) => generate-fields(fun(spec)),
   self: (..args) => (:),

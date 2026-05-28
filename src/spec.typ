@@ -263,7 +263,7 @@
       fields: add-fields(fields),
     ),
     array: (name, inner) => panic("cannot annotate array spec"),
-    dict: (name, key, value) => panic(
+    dict: (name, value) => panic(
       "cannot annotate dictionary spec",
     ),
     function: (name, dom, cod) => panic("cannot annotate function spec"),
@@ -292,7 +292,7 @@
   enum: (name, constrs) => (spec,),
   struct: (name, fields) => (spec,),
   array: (name, inner) => (spec,),
-  dict: (name, key, value) => (spec,),
+  dict: (name, value) => (spec,),
   function: (name, dom, cod) => (spec,),
   fix: (name, fun) => (spec,),
   self: depth => (spec,),
@@ -372,28 +372,22 @@
 
 /// Builds a dictionary spec.
 ///
-/// - `key`: Spec for each key.
 /// - `value`: Spec for each value.
 /// -> spec
 #let dict(
   /// Optional display name.
   /// -> str | auto
   __name__: auto,
-  /// Key spec.
-  /// -> spec
-  key,
   /// Value spec.
   /// -> spec
   value,
 ) = {
-  result-unwrap(result-map2(
-    (key, value) => (
+  result-unwrap(result-map(
+    value => (
       __tag__: "spec/dict",
       name: __name__,
-      key: key,
       value: value,
     ),
-    spec-parse(key),
     spec-parse(value),
   ))
 }
@@ -435,7 +429,7 @@
   null: none,
   args: (
     pos: array(T),
-    named: dict(str, T),
+    named: dict(T),
   ),
 )
 
@@ -449,7 +443,7 @@
   __name__: "constr-spec(" + to-string(T) + ")",
   null: none,
   fields: (
-    fields: dict(str, T),
+    fields: dict(T),
   ),
 )
 
@@ -464,11 +458,11 @@
     empty: none,
     builtin: (name: SPEC-NAME, value: type),
     any: none,
-    enum: (name: SPEC-NAME, constrs: dict(str, CONSTR-SPEC(self))),
-    struct: (name: SPEC-NAME, fields: dict(str, self)),
+    enum: (name: SPEC-NAME, constrs: dict(CONSTR-SPEC(self))),
+    struct: (name: SPEC-NAME, fields: dict(self)),
     union: (name: SPEC-NAME, elems: array(self)),
     array: (name: SPEC-NAME, inner: self),
-    dict: (name: SPEC-NAME, key: self, value: self),
+    dict: (name: SPEC-NAME, value: self),
     function: (name: SPEC-NAME, dom: ARGS-SPEC(self), cod: self),
     fix: (name: str, fun: fun(self)(self)),
     self: (depth: int),

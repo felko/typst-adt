@@ -1,6 +1,6 @@
 #import "../../src/lib.typ" as adt: ok, result-is-err
 
-#let STR-INTS = adt.dict(str, int)
+#let STR-INTS = adt.dict(int)
 #let (intro: str-ints, elim: str-ints-elim) = adt.generate(STR-INTS)
 
 #assert.eq(adt.validate(STR-INTS, str-ints((:))), ok(str-ints((:))))

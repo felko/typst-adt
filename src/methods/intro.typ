@@ -47,7 +47,7 @@
     (intro: intros, intros: intros)
   },
   array: (name, inner) => (intro: generate-value-intro(spec)),
-  dict: (name, key, inner) => (intro: generate-value-intro(spec)),
+  dict: (name, inner) => (intro: generate-value-intro(spec)),
   function: (name, dom, cod) => (intro: generate-function-intro(dom, cod)),
   fix: (name, fun) => spec-elim(
     empty_case: () => (:),
@@ -65,7 +65,7 @@
       (intro: intros, intros: intros)
     },
     array: (name, inner) => (:),
-    dict: (name, key, value) => (:),
+    dict: (name, value) => (:),
     function: (name, dom, cod) => (:),
     fix: (name, fun) => (:),
     self: (..args) => (:),

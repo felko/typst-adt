@@ -11,8 +11,8 @@
 )))
 #assert.eq(adt.validate(SPEC, adt.struct(x: int)), ok(adt.struct(x: int)))
 #assert.eq(adt.validate(SPEC, adt.fun(int)(str)), ok(adt.fun(int)(str)))
-#assert.eq(adt.validate(SPEC, adt.dict(str, adt.array(int))), ok(
-  adt.dict(str, adt.array(int)),
+#assert.eq(adt.validate(SPEC, adt.dict(adt.array(int))), ok(
+  adt.dict(adt.array(int)),
 ))
 
 #assert.eq(adt.constr-spec-parse(RESULT(int).constrs.ok).value.fields.keys(), (

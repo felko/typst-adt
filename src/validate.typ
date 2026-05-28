@@ -213,20 +213,13 @@
       result-all(validate.with(inner), value)
     }
   },
-  dict: (name, key, inner) => {
+  dict: (name, inner) => {
     if type(value) != dictionary {
       err("expected dictionary, got `" + str(type(value)) + "`")
     } else {
-      result-map(
-        pairs => pairs.to-dict(),
-        result-all(
-          ((k, v)) => result-map2(
-            (k, v) => (k, v),
-            validate(key, k),
-            validate(inner, v),
-          ),
-          value.pairs(),
-        ),
+      result-all-dict(
+        v => validate(inner, v),
+        value,
       )
     }
   },

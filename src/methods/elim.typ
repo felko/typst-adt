@@ -40,7 +40,7 @@
       .to-dict(),
     struct: (name, fields) => (mk: fun(..fields)(T)),
     array: (name, inner) => panic("array specs do not have cases"),
-    dict: (name, key, value) => panic(
+    dict: (name, value) => panic(
       "dictionary specs do not have cases",
     ),
     function: (name, dom, cod) => panic(
@@ -112,7 +112,7 @@
     },
   ),
   array: (name, inner) => (elim: generate-value-elim(spec)),
-  dict: (name, key, inner) => (elim: generate-value-elim(spec)),
+  dict: (name, inner) => (elim: generate-value-elim(spec)),
   function: (name, dom, cod) => (elim: generate-function-elim(dom, cod)),
   fix: (name, fun) => generate-elim(fun(spec)),
   self: (..args) => (:),
