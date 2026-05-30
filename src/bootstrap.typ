@@ -735,8 +735,7 @@
           }
         } else {
           err(
-            "expected dictionary for `spec/struct` fields, got "
-              + repr(fields),
+            "expected dictionary for `spec/struct` fields, got " + repr(fields),
           )
         }
       } else if tag == "spec/array" {

@@ -31,9 +31,12 @@
 #assert.eq(token-kind(token-eof), "eof")
 #assert.eq(token-kind(token-lit(9)), "lit:9")
 #assert.eq(token-kind(token-span(3, 8)), "span:5")
-#assert.eq(adt.elim(TOKEN, eof: "eof", lit: value => value, span: "span")(
-  token-lit(10),
-), 10)
+#assert.eq(
+  adt.elim(TOKEN, eof: "eof", lit: value => value, span: "span")(
+    token-lit(10),
+  ),
+  10,
+)
 #assert(result-is-err(adt.validate(TOKEN, (__tag__: "missing"))))
 #assert(result-is-err(adt.validate-constr(TOKEN.constrs.span, 1)))
 #assert(result-is-err(adt.validate-constr(TOKEN.constrs.span, 1, 2, 3)))

@@ -129,6 +129,10 @@
   ),
 )
 
+#let tree-generated = adt.generate(TREE(str))
+#assert(not tree-generated.keys().contains("rec-state"))
+#assert(not tree-generated.keys().contains("annotate-state"))
+
 #let (
   intro: (
     leaf: tree-leaf,
@@ -137,7 +141,7 @@
   rec: tree-rec,
   elim: tree-elim,
   annotate: tree-annotate,
-) = adt.generate(TREE(str))
+) = tree-generated
 
 #let tree = tree-node(
   tree-node(
@@ -162,6 +166,24 @@
 #assert.eq(heighted.left.left.height, 0)
 #assert.eq(heighted.right.height, 0)
 #assert.eq(adt.validate(HEIGHTED-TREE, heighted), ok(heighted))
+
+#let (count, indexed) = tree-annotate(
+  __state__: 0,
+  __ann__: (index: int),
+  leaf: (index, value) => (index + 1, (index: index)),
+  node: (index, left, right) => (index + 1, (index: index)),
+)(tree)
+
+#assert.eq(count, 5)
+#assert.eq(indexed.left.left.index, 0)
+#assert.eq(indexed.left.right.index, 1)
+#assert.eq(indexed.left.index, 2)
+#assert.eq(indexed.right.index, 3)
+#assert.eq(indexed.index, 4)
+#assert.eq(
+  adt.validate(adt.annotate(TREE(str), index: int), indexed),
+  ok(indexed),
+)
 
 #let HEIGHTED-DEPTHED-TREE = adt.annotate(TREE(str), height: int, depth: int)
 #let (
@@ -229,4 +251,64 @@
     node: (left, right) => left.left.value,
   )(heighted-and-depthed),
   "a",
+)
+
+#let tree-subst(tree, sigma) = tree-rec(
+  __state__: (:),
+  leaf: (rev-subst, value) => {
+    if sigma.keys().contains(value) {
+      rev-subst.insert(sigma.at(value), value)
+      (
+        rev-subst,
+        tree-leaf(sigma.at(value)),
+      )
+    } else {
+      (
+        rev-subst,
+        tree-leaf(value),
+      )
+    }
+  },
+  node: (rev-subst, left, right) => (
+    rev-subst,
+    tree-node(
+      left,
+      right,
+    ),
+  ),
+)(tree)
+
+#assert.eq(
+  tree-subst(heighted-and-depthed, (b: "z", d: "x")),
+  (
+    (z: "b"),
+    (
+      __tag__: "node",
+      left: (
+        __tag__: "node",
+        left: (
+          __tag__: "leaf",
+          value: "a",
+          height: 0,
+          depth: 2,
+        ),
+        right: (
+          __tag__: "leaf",
+          value: "z",
+          height: 0,
+          depth: 2,
+        ),
+        height: 1,
+        depth: 1,
+      ),
+      right: (
+        __tag__: "leaf",
+        value: "c",
+        height: 0,
+        depth: 1,
+      ),
+      height: 2,
+      depth: 0,
+    ),
+  ),
 )

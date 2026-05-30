@@ -177,11 +177,106 @@
   },
 )
 
+/// Builds stateful recursive folds for enum specs.
+///
+/// Recursively maps self fields from left to right before calling each
+/// constructor case. Cases receive the current state first and return
+/// `(state, value)`.
+/// -> dictionary(str, function)
+#let generate-enum-rec-state(spec, constrs) = (
+  rec-state: (..args) => {
+    assert(
+      args.pos().len() == 0,
+      message: "expected no positional arguments, got " + repr(args.pos()),
+    )
+    let cases = args.named()
+    assert(
+      cases.keys().contains("__state__"),
+      message: "missing `__state__` initial state",
+    )
+    let initial-state = cases.remove("__state__")
+    assert(
+      cases.keys().all(k => constrs.keys().contains(k)),
+      message: "unrecognized cases: "
+        + cases
+          .keys()
+          .filter(k => not constrs.keys().contains(k))
+          .map(k => "`" + k + "`")
+          .join(", "),
+    )
+    assert(
+      constrs.keys().all(k => cases.keys().contains(k)),
+      message: "missing cases: "
+        + constrs
+          .keys()
+          .filter(k => not cases.keys().contains(k))
+          .map(k => "`" + k + "`")
+          .join(", "),
+    )
+    let go(state, value) = {
+      if (
+        std.type(value) != std.dictionary
+          or not value.keys().contains("__tag__")
+      ) {
+        panic("not an enum value", value)
+      }
+      let tag = value.remove("__tag__").split("/").last()
+      if not constrs.keys().contains(tag) {
+        panic("unknown constructor `" + tag + "`")
+      }
+      let constr-spec = constrs.at(tag)
+      let fields = pretty-result-unwrap(project-constr-rec(constr-spec, value))
+      let extras = extra-value-fields(constr-spec, value)
+      let finish(result) = {
+        if std.type(result) == std.dictionary {
+          merge-extra-fields(result, extras)
+        } else {
+          rebuild-with-extra-fields(spec, tag, fields, extras, result)
+        }
+      }
+      let mapped = (:)
+      if constr-spec.__tag__ == "constr-spec/fields" {
+        for (field-name, field-spec) in constr-spec.fields.pairs() {
+          if fields.keys().contains(field-name) {
+            let field-value = fields.at(field-name)
+            if spec-is-fix(field-spec) {
+              let (next-state, mapped-value) = go(state, field-value)
+              state = next-state
+              mapped.insert(field-name, mapped-value)
+            } else {
+              mapped.insert(field-name, field-value)
+            }
+          }
+        }
+      } else if constr-spec.__tag__ != "constr-spec/null" {
+        panic("ill-formed constructor spec: `" + repr(constr-spec) + "`")
+      }
+      let case = cases.at(tag)
+      if std.type(case) != std.function {
+        return (state, finish(case))
+      }
+      let (next-state, result) = case(state, ..mapped.values())
+      (next-state, finish(result))
+    }
+    value => go(initial-state, value)
+  },
+)
+
 /// Generates recursive folds for recursive enum specs.
 /// -> dictionary
 #let generate-rec(spec) = spec-elim(
   fix: (name, fun) => spec-elim(
-    enum: (name, constrs) => generate-enum-rec(spec, constrs),
+    enum: (name, constrs) => {
+      let normal = generate-enum-rec(spec, constrs).rec
+      let stateful = generate-enum-rec-state(spec, constrs).rec-state
+      (
+        rec: (..args) => if args.named().keys().contains("__state__") {
+          stateful(..args)
+        } else {
+          normal(..args)
+        },
+      )
+    },
     __default__: (:),
   )(fun(spec)),
   __default__: (..args) => (:),
@@ -193,6 +288,16 @@
   let generated = generate-rec(spec)
   if not generated.keys().contains("rec") {
     panic("spec does not support recursive folds")
+  }
+  (generated.rec)(..cases)
+}
+
+/// Builds a stateful recursive fold directly from a spec and cases.
+/// -> function
+#let rec-state(spec, ..cases) = {
+  let generated = generate-rec(spec)
+  if not generated.keys().contains("rec") {
+    panic("spec does not support stateful recursive folds")
   }
   (generated.rec)(..cases)
 }

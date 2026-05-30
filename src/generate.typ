@@ -10,7 +10,8 @@
 /// Generates all helpers available for a spec.
 ///
 /// The returned dictionary may contain `intro`, `intros`, `elim`, `fields`,
-/// `rec`, and `annotate`, depending on the spec kind.
+/// `rec`, and `annotate`, depending on the spec kind. Recursive helpers dispatch
+/// to their stateful variants when passed `__state__`.
 /// -> dictionary
 #let generate(spec) = (
   validate: validate.with(spec),

@@ -122,7 +122,8 @@
     )
   } else {
     assert.eq(
-      errs.len(), 0,
+      errs.len(),
+      0,
       message: "invalid constructor specifications for enum type:\n"
         + errs
           .pairs()
