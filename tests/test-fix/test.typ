@@ -140,7 +140,10 @@
 ) = adt.generate(TREE(str))
 
 #let tree = tree-node(
-  tree-node(tree-leaf("a"), tree-leaf("b")),
+  tree-node(
+    tree-leaf("a"),
+    tree-leaf("b"),
+  ),
   tree-leaf("c"),
 )
 

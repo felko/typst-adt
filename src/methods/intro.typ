@@ -1,17 +1,18 @@
 #import "../bootstrap.typ": *
 #import "../validate.typ": *
+#import "../std.typ" as std
 #import "common.typ": *
 
 /// Wraps a function with argument and return validation.
 /// -> function
 #let generate-function-intro(dom, cod) = f => {
   assert(
-    type(f) == function,
-    message: "expected function, got `" + str(type(f)) + "`",
+    std.type(f) == std.function,
+    message: "expected function, got `" + str(std.type(f)) + "`",
   )
   (..args) => {
-    let args = result-unwrap(validate-args(dom, ..args))
-    result-unwrap(validate(cod, f(..args)))
+    let args = pretty-result-unwrap(validate-args(dom, ..args))
+    pretty-result-unwrap(validate(cod, f(..args)))
   }
 }
 
@@ -22,7 +23,7 @@
     .pairs()
     .map(((constr-name, constr-spec)) => (
       constr-name,
-      generate-constr-with-spec(constr-name, constr-spec),
+      generate-constr-with-spec(spec, constr-name, constr-spec),
     ))
     .to-dict()
 )
@@ -32,12 +33,12 @@
 /// Returns `intro` for most specs and both `intro`/`intros` for enums.
 /// -> dictionary
 #let generate-intro(spec) = spec-elim(
-  empty_case: () => (:),
   builtin: type_ => (intro: generate-value-intro(spec)),
   any: () => (intro: value => value),
-  union_case: (name, elems) => (intro: generate-value-intro(spec)),
+  union: (name, elems) => (intro: generate-value-intro(spec)),
   struct: (name, fields) => (
     intro: generate-constr-with-spec(
+      spec,
       none,
       (__tag__: "constr-spec/fields", fields: fields),
     ),
@@ -47,15 +48,12 @@
     (intro: intros, intros: intros)
   },
   array: (name, inner) => (intro: generate-value-intro(spec)),
-  dict: (name, inner) => (intro: generate-value-intro(spec)),
+  dictionary: (name, inner) => (intro: generate-value-intro(spec)),
   function: (name, dom, cod) => (intro: generate-function-intro(dom, cod)),
   fix: (name, fun) => spec-elim(
-    empty_case: () => (:),
-    builtin: type_ => (:),
-    any: () => (:),
-    union_case: (name, elems) => (:),
     struct: (name, fields) => (
       intro: generate-constr-with-spec(
+        spec,
         none,
         (__tag__: "constr-spec/fields", fields: fields),
       ),
@@ -64,12 +62,7 @@
       let intros = generate-enum-intros(spec, constrs)
       (intro: intros, intros: intros)
     },
-    array: (name, inner) => (:),
-    dict: (name, value) => (:),
-    function: (name, dom, cod) => (:),
-    fix: (name, fun) => (:),
-    self: (..args) => (:),
+    __default__: (..args) => (:),
   )(fun(spec)),
   self: (..args) => (:),
 )(spec)
-

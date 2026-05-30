@@ -89,6 +89,10 @@ Use `adt.fix` to take the fixpoint of any Typst function as a mapping between sp
 Use `adt.rec(spec, ..cases)` when you want a recursive fold without first
 destructuring `adt.generate(spec)`.
 
+## Annotations
+
+Annotate a full 
+
 ## Development
 
 The test suite uses [`tytanic`](https://github.com/typst-community/tytanic):

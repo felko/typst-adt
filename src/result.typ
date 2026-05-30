@@ -1,15 +1,19 @@
+#import "std.typ" as std
+
 /// Spec for result values.
 ///
-/// A `RESULT(T)` is either `ok(value)` where `value` matches `T`, or `err(msg)`
-/// where `msg` is a string.
+/// A `RESULT(T)` is either `ok(value)` where `value` matches `T`, or an error
+/// with a primary message and structured trace.
 /// -> spec
-#let RESULT(
+#let RESULT-AUX(
+  to-string,
+  TRACE,
   /// Spec for the successful value.
   /// -> spec
   T,
 ) = (
   __tag__: "spec/enum",
-  name: auto,
+  name: "RESULT(" + to-string(T) + ")",
   constrs: (
     ok: (
       __tag__: "constr-spec/fields",
@@ -20,7 +24,8 @@
     err: (
       __tag__: "constr-spec/fields",
       fields: (
-        msg: (__tag__: "spec/builtin", value: str),
+        msg: (__tag__: "spec/builtin", name: "string", value: str),
+        trace: TRACE,
       ),
     ),
   ),
@@ -41,16 +46,38 @@
 
 /// Creates a failed result.
 ///
-/// - `e`: Error message. Converted to a string.
+/// - `msg`: Primary error message. Converted to a string.
 /// -> RESULT(any)
 #let err(
   /// Error message.
   /// -> any
-  e,
+  msg,
+  /// Structured error trace.
+  /// -> trace
+  trace: (__tag__: "trace/root"),
 ) = (
   __tag__: "result/err",
-  msg: str(e),
+  msg: str(msg),
+  trace: trace,
 )
+
+/// Adds an outer frame to an error trace.
+///
+/// Ok results pass through unchanged.
+/// -> RESULT(any)
+#let result-trace(frame, result) = {
+  if result.__tag__ == "result/ok" {
+    result
+  } else if result.__tag__ == "result/err" {
+    (
+      __tag__: "result/err",
+      msg: result.msg,
+      trace: frame(result.trace),
+    )
+  } else {
+    panic("invalid result", result)
+  }
+}
 
 /// Pattern matches a result.
 ///
@@ -75,7 +102,7 @@
     panic("missing case: `err`")
   }
   let (ok: ok-case, err: err-case, ..cases) = cases
-  if type(ok-case) != function {
+  if std.type(ok-case) != std.function {
     ok-case = _ => ok-case
   }
   if cases.len() > 0 {
@@ -84,10 +111,13 @@
         + cases.pairs().map(((k, v)) => "`" + k + "`").join(", "),
     )
   }
-  if type(err-case) != function {
+  if std.type(err-case) != std.function {
     err-case = _ => err-case
   }
   result => {
+    if std.type(result) != std.dictionary {
+      panic("invalid result: `" + repr(result) + "`")
+    }
     if result.__tag__ == "result/ok" {
       ok-case(result.value)
     } else if result.__tag__ == "result/err" {
@@ -112,7 +142,7 @@
   result,
 ) = result-elim(
   ok: value => ok(f(value)),
-  err: err,
+  err: _ => result,
 )(result)
 
 /// Maps two ok results.
@@ -133,9 +163,9 @@
 ) = result-elim(
   ok: value1 => result-elim(
     ok: value2 => ok(f(value1, value2)),
-    err: err,
+    err: _ => result2,
   )(result2),
-  err: err,
+  err: _ => result1,
 )(result1)
 
 /// Returns `result1` if it is ok, otherwise returns `result2`.
@@ -149,7 +179,7 @@
   result2,
 ) = result-elim(
   ok: ok,
-  err: result2,
+  err: _ => result2,
 )(result1)
 
 /// Chains a result into a result-producing continuation.
@@ -164,7 +194,7 @@
   /// -> function
   cont,
 ) = {
-  result-elim(ok: cont, err: err)(result)
+  result-elim(ok: cont, err: _ => result)(result)
 }
 
 /// Returns whether `result` is an ok result.
@@ -183,8 +213,8 @@
 
 /// Maps an array with a result-producing function.
 ///
-/// Returns `ok(values)` when all items are ok. Returns one error containing all
-/// indexed failures otherwise.
+/// Returns `ok(values)` when all items are ok. Returns the first indexed error
+/// otherwise.
 /// -> RESULT(array)
 #let result-all(
   /// Function returning a result for each item.
@@ -195,22 +225,25 @@
   xs,
 ) = {
   let ys = ()
-  let errs = (:)
   for (i, x) in xs.enumerate() {
     let y = f(x)
     if y.__tag__ == "result/ok" {
       ys.push(y.value)
     } else if y.__tag__ == "result/err" {
-      errs.insert(str(i), y.msg)
+      return result-trace(
+        cont => (
+          __tag__: "trace/array-val",
+          index: i,
+          value: x,
+          cont: cont,
+        ),
+        y,
+      )
     } else {
-      panic("invalid result: `" + repr(y) + "`")
+      panic("invalid result", y)
     }
   }
-  if errs.len() == 0 {
-    ok(ys)
-  } else {
-    err(errs.pairs().map(((i, msg)) => "at index " + i + ": " + msg).join("\n"))
-  }
+  ok(ys)
 }
 
 /// Maps dictionary values with a result-producing function.
@@ -224,13 +257,28 @@
   /// Dictionary to map.
   /// -> dictionary
   xs,
-) = result-map(
-  pairs => pairs.to-dict(),
-  result-all(
-    ((k, v)) => result-map(w => (k, w), f(v)),
-    xs.pairs(),
-  ),
-)
+) = {
+  let ys = (:)
+  for (key, value) in xs.pairs() {
+    let result = f(value)
+    if result.__tag__ == "result/ok" {
+      ys.insert(key, result.value)
+    } else if result.__tag__ == "result/err" {
+      return result-trace(
+        cont => (
+          __tag__: "trace/dictionary-val",
+          key: key,
+          value: value,
+          cont: cont,
+        ),
+        result,
+      )
+    } else {
+      panic("invalid result", result)
+    }
+  }
+  ok(ys)
+}
 
 /// Zips two arrays with a result-producing function.
 ///
@@ -248,7 +296,7 @@
   ys,
 ) = {
   if xs.len() != ys.len() {
-    err("arity mismatch: `" + repr(xs) + "` vs. `" + repr(ys) + "`")
+    err("length mismatch: " + str(xs.len()) + " != " + str(ys.len()))
   } else {
     result-all(
       ((x, y)) => f(x, y),
@@ -272,42 +320,30 @@
   /// -> dictionary
   ys,
 ) = {
-  assert.eq(type(xs), dictionary)
-  assert.eq(type(ys), dictionary)
+  assert.eq(std.type(xs), std.dictionary)
+  assert.eq(std.type(ys), std.dictionary)
   let (missing-left, missing-right) = ((), ())
+  let (aligned-left, aligned-right) = ((), ())
   let zipped = (:)
   for (kx, vx) in xs.pairs() {
+    aligned-left.push(kx)
     if ys.keys().contains(kx) {
       let vy = ys.remove(kx)
       zipped.insert(kx, (vx, vy))
+      aligned-right.push(kx)
     } else {
       missing-right.push(kx)
+      aligned-right.push(none)
     }
   }
   for ky in ys.keys() {
     missing-left.push(ky)
+    aligned-left.push(none)
+    aligned-right.push(ky)
   }
 
-  if missing-left.len() > 0 and missing-right.len() > 0 {
-    err(
-      "missing "
-        + missing-left.map(k => "`" + k + "`").join(", ")
-        + " from the left and "
-        + missing-right.map(k => "`" + k + "`").join(", ")
-        + " from the right",
-    )
-  } else if missing-left.len() > 0 {
-    err(
-      "missing "
-        + missing-left.map(k => "`" + k + "`").join(", ")
-        + " from the left",
-    )
-  } else if missing-right.len() > 0 {
-    err(
-      "missing "
-        + missing-right.map(k => "`" + k + "`").join(", ")
-        + " from the right",
-    )
+  if missing-left.len() > 0 or missing-right.len() > 0 {
+    err("dictionary key mismatch")
   } else {
     result-all-dict(
       ((vx, vy)) => f(vx, vy),
@@ -318,7 +354,7 @@
 
 /// Returns the first ok result from mapping an array.
 ///
-/// If every item fails, returns one error containing all failures.
+/// If every item fails, returns the first error.
 /// -> RESULT(any)
 #let result-any(
   /// Function returning a result for each item.
@@ -328,18 +364,24 @@
   /// -> array
   xs,
 ) = {
-  let errs = ()
+  let first-error = none
   for (i, x) in xs.enumerate() {
     let y = f(x)
     if y.__tag__ == "result/ok" {
       return y
     } else if y.__tag__ == "result/err" {
-      errs.push("at index " + str(i) + ": " + y.msg)
+      if first-error == none {
+        first-error = y
+      }
     } else {
       panic("invalid result: `" + repr(y) + "`")
     }
   }
-  err("found no result:\n" + errs.join("\n"))
+  if first-error == none {
+    err("found no result")
+  } else {
+    first-error
+  }
 }
 
 /// Extracts the ok value.
@@ -354,9 +396,30 @@
   if result.__tag__ == "result/ok" {
     result.value
   } else if result.__tag__ == "result/err" {
-    panic(result.msg)
+    panic(result.msg, result.trace)
   } else {
-    panic("invalid result: `" + repr(result) + "`")
+    panic("invalid result", result)
+  }
+}
+
+/// Extracts the ok value using a custom error renderer.
+///
+/// The renderer receives the full error value.
+/// -> any
+#let result-unwrap-with(
+  /// Converts an error result to a panic message.
+  /// -> function
+  error-to-string,
+  /// Result to unwrap.
+  /// -> RESULT(any)
+  result,
+) = {
+  if result.__tag__ == "result/ok" {
+    result.value
+  } else if result.keys().contains("__tag__") {
+    assert.eq(result.__tag__, "result/ok", message: error-to-string(result))
+  } else {
+    panic("invalid result", result)
   }
 }
 

@@ -14,5 +14,4 @@
 #assert.eq(nested-elim(value => value)(nested-intro(true)), true)
 #assert(result-is-err(adt.validate(NESTED, none)))
 
-#assert.eq(adt.union().__tag__, "spec/empty")
-
+#assert.eq(adt.union().__tag__, "spec/union")

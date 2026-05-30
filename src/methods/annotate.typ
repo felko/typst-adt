@@ -1,5 +1,6 @@
 #import "../bootstrap.typ": *
 #import "../validate.typ": *
+#import "../std.typ" as std
 #import "common.typ": *
 
 /// Builds recursive annotation for enum specs.
@@ -19,10 +20,10 @@
     )
     let ann-specs = named.remove("__ann__")
     assert(
-      type(ann-specs) == dictionary,
+      std.type(ann-specs) == std.dictionary,
       message: "expected `__ann__` to be a dictionary",
     )
-    ann-specs = result-unwrap(result-all-dict(spec-parse, ann-specs))
+    ann-specs = pretty-result-unwrap(result-all-dict(spec-parse, ann-specs))
     let cases = named
     assert(
       cases.keys().all(k => constrs.keys().contains(k)),
@@ -43,15 +44,15 @@
           .join(", "),
     )
     let go(value) = {
-      if type(value) != dictionary or not value.keys().contains("__tag__") {
-        panic("not an enum value: `" + repr(value) + "`")
+      if std.type(value) != std.dictionary or not value.keys().contains("__tag__") {
+        panic("not an enum value", value)
       }
       let tag = value.remove("__tag__").split("/").last()
       if not constrs.keys().contains(tag) {
         panic("unknown constructor `" + tag + "`")
       }
       let constr-spec = constrs.at(tag)
-      let fields = result-unwrap(project-constr(constr-spec, value))
+      let fields = pretty-result-unwrap(project-constr(constr-spec, value))
       let rebuilt = (__tag__: tag)
       let algebra-fields = (:)
       if constr-spec.__tag__ == "constr-spec/fields" {
@@ -74,12 +75,12 @@
         }
       }
       let case = cases.at(tag)
-      let ann-value = if type(case) == function {
+      let ann-value = if std.type(case) == std.function {
         case(..algebra-fields.values())
       } else {
         case
       }
-      ann-value = result-unwrap(validate(
+      ann-value = pretty-result-unwrap(validate(
         (__tag__: "spec/struct", name: auto, fields: ann-specs),
         ann-value,
       ))
@@ -95,28 +96,10 @@
 /// Generates annotation helpers for recursive enum specs.
 /// -> dictionary
 #let generate-annotate(spec) = spec-elim(
-  empty_case: () => (:),
-  builtin: type_ => (:),
-  any: () => (:),
-  union_case: (name, elems) => (:),
-  struct: (name, fields) => (:),
   enum: (name, constrs) => generate-enum-annotate(spec, constrs),
-  array: (name, inner) => (:),
-  dict: (name, inner) => (:),
-  function: (name, dom, cod) => (:),
   fix: (name, fun) => spec-elim(
-    empty_case: () => (:),
-    builtin: type_ => (:),
-    any: () => (:),
-    union_case: (name, elems) => (:),
-    struct: (name, fields) => (:),
     enum: (name, constrs) => generate-enum-annotate(spec, constrs),
-    array: (name, inner) => (:),
-    dict: (name, inner) => (:),
-    function: (name, dom, cod) => (:),
-    fix: (name, fun) => (:),
-    self: (..args) => (:),
+    __default__: (:),
   )(fun(spec)),
-  self: (..args) => (:),
+  __default__: (:),
 )(spec)
-

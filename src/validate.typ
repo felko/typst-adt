@@ -1,5 +1,6 @@
 #import "result.typ": *
 #import "spec.typ": *
+#import "std.typ" as std
 
 /// Validates function call arguments against an argument spec.
 ///
@@ -15,10 +16,15 @@
   /// Arguments to validate.
   /// -> arguments
   ..args,
-) = args-spec-elim(
+) = {
+  let normalized-args-spec = result-unwrap(args-spec-parse(args-spec))
+  args-spec-elim(
   null: {
     if args.pos().len() != 0 or args.named().len() != 0 {
-      err("expected no arguments, got `" + repr(args) + "`")
+      err(
+        "expected no arguments",
+        trace: (__tag__: "trace/args-null", extra-args: args),
+      )
     } else {
       ok(())
     }
@@ -30,18 +36,29 @@
           + str(args-spec.pos().len())
           + " positional argument(s), got "
           + str(args.pos().len()),
+        trace: (
+          __tag__: "trace/args-arity",
+          args-spec: normalized-args-spec,
+          value: args,
+        ),
       )
     }
-    let pos = result-all(
-      ((pos-spec, pos-value)) => {
-        validate(pos-spec, pos-value)
-      },
-      args-spec.pos().zip(args.pos()),
-    )
-    if result-is-err(pos) {
-      return pos
-    } else {
-      pos = pos.value
+    let pos = ()
+    for (index, (pos-spec, pos-value)) in args-spec.pos().zip(args.pos()).enumerate() {
+      let result = validate(pos-spec, pos-value)
+      if result-is-err(result) {
+        return result-trace(
+          cont => (
+            __tag__: "trace/args-pos-arg",
+            args-spec: normalized-args-spec,
+            index: index,
+            value: pos-value,
+            cont: cont,
+          ),
+          result,
+        )
+      }
+      pos.push(result.value)
     }
     let named-args = args.named()
     let named-spec-value = (:)
@@ -60,7 +77,12 @@
         "unexpected argument"
           + plural
           + ": "
-          + named-args.keys().map(k => "`" + k + "`").join(", "),
+          + repr(named-args.keys()),
+        trace: (
+          __tag__: "trace/args-extra-named",
+          args-spec: normalized-args-spec,
+          extra-args: named-args,
+        ),
       )
     } else if missing-named-args.len() > 0 {
       let plural = if missing-named-args.len() > 1 { "s" } else { "" }
@@ -70,19 +92,36 @@
           + "for argument"
           + plural
           + ": "
-          + missing-named-args.keys().map(k => "`" + k + "`").join(", "),
-      )
-    } else {
-      result-map(
-        named => arguments(..pos, ..named),
-        result-all-dict(
-          ((arg-spec, arg-value)) => validate(arg-spec, arg-value),
-          named-spec-value,
+          + repr(missing-named-args.keys()),
+        trace: (
+          __tag__: "trace/args-missing-named",
+          args-spec: normalized-args-spec,
+          missing-args: missing-named-args.keys(),
         ),
       )
+    } else {
+      let named = (:)
+      for (arg-name, (arg-spec, arg-value)) in named-spec-value.pairs() {
+        let result = validate(arg-spec, arg-value)
+        if result-is-err(result) {
+          return result-trace(
+            cont => (
+              __tag__: "trace/args-named-arg",
+              args-spec: normalized-args-spec,
+              name: arg-name,
+              value: arg-value,
+              cont: cont,
+            ),
+            result,
+          )
+        }
+        named.insert(arg-name, result.value)
+      }
+      ok(arguments(..pos, ..named))
     }
   },
-)(args-spec)
+  )(normalized-args-spec)
+}
 
 /// Validates constructor arguments against a constructor spec.
 ///
@@ -98,11 +137,20 @@
   /// Constructor arguments to validate.
   /// -> arguments
   ..args,
-) = constr-spec-elim(
+) = {
+  let normalized-constr-spec = result-unwrap(constr-spec-parse(constr-spec))
+  constr-spec-elim(
   null: {
     let named = args.named()
     if args.pos().len() != 0 or named.len() != 0 {
-      err("expected no arguments, got `" + repr(args) + "`")
+      err(
+        "expected no arguments",
+        trace: (
+          __tag__: "trace/constr-null",
+          constr-spec: normalized-constr-spec,
+          value: args,
+        ),
+      )
     } else {
       ok((:))
     }
@@ -114,7 +162,14 @@
       let arg = if named.keys().contains(field-name) {
         named.remove(field-name)
       } else if pos.len() == 0 {
-        return err("not enough arguments: `" + repr(args) + "`")
+        return err(
+          "not enough arguments",
+          trace: (
+            __tag__: "trace/constr-missing-arg",
+            constr-spec: normalized-constr-spec,
+            constr-arg: field-name,
+          ),
+        )
       } else {
         let (arg, ..new-pos) = pos
         pos = new-pos
@@ -122,18 +177,36 @@
       }
       let result = validate(field-spec, arg)
       if result-is-err(result) {
-        return result
+        return result-trace(
+          cont => (
+            __tag__: "trace/constr-field",
+            constr-spec: normalized-constr-spec,
+            constr-arg: field-name,
+            value: arg,
+            cont: cont,
+          ),
+          result,
+        )
       } else {
         fields.insert(field-name, result.value)
       }
     }
     if pos.len() > 0 or named.len() > 0 {
-      err("unrecognized arguments: `" + repr(arguments(..pos, ..named)) + "`")
+      let extra-args = arguments(..pos, ..named)
+      err(
+        "unrecognized arguments: " + repr(extra-args),
+        trace: (
+          __tag__: "trace/constr-extra-args",
+          constr-spec: normalized-constr-spec,
+          extra-args: extra-args,
+        ),
+      )
     } else {
       ok(fields)
     }
   },
-)(constr-spec)
+  )(normalized-constr-spec)
+}
 
 /// Validates a value against a spec.
 ///
@@ -147,20 +220,23 @@
   /// Value to validate.
   /// -> any
   value,
-) = spec-elim(
-  empty_case: () => {
-    err("empty type has no values")
-  },
+) = {
+  let normalized-spec = if std.type(spec) == std.type {
+    result-unwrap(spec-parse(spec))
+  } else {
+    spec
+  }
+  let result = spec-elim(
   builtin: type_ => {
-    assert(type(type_) == type)
-    if type(value) == type_ {
+    assert(std.type(type_) == std.type)
+    if std.type(value) == type_ {
       ok(value)
     } else {
       err(
         "expected a value of type `"
           + str(type_)
           + "`, got `"
-          + str(type(value))
+          + str(std.type(value))
           + "`",
       )
     }
@@ -170,17 +246,28 @@
   },
   enum: (name, constrs) => {
     let value = value
-    if type(value) == dictionary and value.keys().contains("__tag__") {
+    if std.type(value) == std.dictionary and value.keys().contains("__tag__") {
       let tag = value.remove("__tag__")
       let constr = tag.split("/").last()
       if constrs.keys().contains(constr) {
         let constr-spec = constrs.at(constr)
         result-map(
           fields => (__tag__: tag, ..fields),
-          validate-constr-aux(
-            validate,
-            constr-spec,
-            ..value,
+          result-trace(
+            cont => (
+              __tag__: "trace/constr",
+              name: if name == auto {
+                constr
+              } else {
+                str(name).split("(").first() + "-" + constr
+              },
+              cont: cont,
+            ),
+            validate-constr-aux(
+              validate,
+              constr-spec,
+              ..value,
+            ),
           ),
         )
       } else {
@@ -192,30 +279,57 @@
         )
       }
     } else {
-      err("not an enum value: `" + repr(value) + "`")
+      err("not an enum value: " + repr(value))
     }
   },
-  union_case: (name, elems) => {
-    result-any(elem => validate(elem, value), elems)
+  union: (name, elems) => {
+    let first-error = none
+    for elem in elems {
+      let result = validate(elem, value)
+      if result-is-ok(result) {
+        return result
+      } else if first-error == none {
+        first-error = result-trace(
+          cont => (
+            __tag__: "trace/union",
+            spec: elem,
+            value: value,
+            cont: cont,
+          ),
+          result,
+        )
+      }
+    }
+    if first-error == none {
+      err("empty type has no values")
+    } else {
+      first-error
+    }
   },
-  struct: (name, fields-spec) => validate-constr-aux(
-    validate,
-    (
-      __tag__: "constr-spec/fields",
-      fields: fields-spec,
-    ),
-    ..value,
-  ),
+  struct: (name, fields-spec) => {
+    if std.type(value) != std.dictionary {
+      err("expected dictionary, got `" + str(std.type(value)) + "`")
+    } else {
+      validate-constr-aux(
+        validate,
+        (
+          __tag__: "constr-spec/fields",
+          fields: fields-spec,
+        ),
+        ..value,
+      )
+    }
+  },
   array: (name, inner) => {
-    if type(value) != type(()) {
-      err("expected array, got `" + str(type(value)) + "`")
+    if std.type(value) != std.array {
+      err("expected array, got `" + str(std.type(value)) + "`")
     } else {
       result-all(validate.with(inner), value)
     }
   },
-  dict: (name, inner) => {
-    if type(value) != dictionary {
-      err("expected dictionary, got `" + str(type(value)) + "`")
+  dictionary: (name, inner) => {
+    if std.type(value) != std.dictionary {
+      err("expected dictionary, got `" + str(std.type(value)) + "`")
     } else {
       result-all-dict(
         v => validate(inner, v),
@@ -224,15 +338,25 @@
     }
   },
   function: (name, dom, cod) => {
-    if type(value) == function {
+    if std.type(value) == std.function {
       ok(value)
     } else {
-      err("expected function, got `" + str(type(value)) + "`")
+      err("expected function, got `" + str(std.type(value)) + "`")
     }
   },
-  fix: (name, fun) => validate(fun(spec), value),
+  fix: (name, fun) => validate(fun(normalized-spec), value),
   self: depth => panic("cannot validate an unbound recursive self spec"),
-)(spec)
+  )(normalized-spec)
+  result-trace(
+    cont => (
+      __tag__: "trace/val",
+      spec: normalized-spec,
+      value: value,
+      cont: cont,
+    ),
+    result,
+  )
+}
 
 /// Validates function call arguments with the default validator.
 ///

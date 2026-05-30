@@ -1,5 +1,6 @@
 #import "../bootstrap.typ": *
 #import "../validate.typ": *
+#import "../std.typ" as std
 #import "common.typ": *
 
 /// Recurses into fields that point back to a fixed-point spec.
@@ -28,7 +29,16 @@
         } else {
           let result = validate(field-spec, value.at(field-name))
           if result-is-err(result) {
-            return result
+            return result-trace(
+              cont => (
+                __tag__: "trace/constr-field",
+                constr-spec: constr-spec,
+                constr-arg: field-name,
+                value: value.at(field-name),
+                cont: cont,
+              ),
+              result,
+            )
           }
           fields.insert(field-name, result.value)
         }
@@ -56,7 +66,7 @@
 /// Adds preserved extra fields back to a dictionary value.
 /// -> any
 #let merge-extra-fields(value, extras) = {
-  if type(value) != dictionary {
+  if std.type(value) != std.dictionary {
     return value
   }
   for (field-name, field-value) in extras.pairs() {
@@ -116,25 +126,25 @@
           .join(", "),
     )
     let go(value) = {
-      if type(value) != dictionary or not value.keys().contains("__tag__") {
-        panic("not an enum value: `" + repr(value) + "`")
+      if std.type(value) != std.dictionary or not value.keys().contains("__tag__") {
+        panic("not an enum value", value)
       }
       let tag = value.remove("__tag__").split("/").last()
       if not constrs.keys().contains(tag) {
         panic("unknown constructor `" + tag + "`")
       }
       let constr-spec = constrs.at(tag)
-      let fields = result-unwrap(project-constr-rec(constr-spec, value))
+      let fields = pretty-result-unwrap(project-constr-rec(constr-spec, value))
       let extras = extra-value-fields(constr-spec, value)
       let finish(result) = {
-        if type(result) == dictionary {
+        if std.type(result) == std.dictionary {
           merge-extra-fields(result, extras)
         } else {
           rebuild-with-extra-fields(spec, tag, fields, extras, result)
         }
       }
       let case = cases.at(tag)
-      if type(case) != function {
+      if std.type(case) != std.function {
         return finish(case)
       }
       let result = if constr-spec.__tag__ == "constr-spec/null" {
@@ -154,7 +164,7 @@
       } else {
         panic("ill-formed constructor spec: `" + repr(constr-spec) + "`")
       }
-      if type(result) == function {
+      if std.type(result) == std.function {
         (..args) => finish(result(..args))
       } else {
         finish(result)
@@ -167,29 +177,11 @@
 /// Generates recursive folds for recursive enum specs.
 /// -> dictionary
 #let generate-rec(spec) = spec-elim(
-  empty_case: () => (:),
-  builtin: type_ => (:),
-  any: () => (:),
-  union_case: (name, elems) => (:),
-  struct: (name, fields) => (:),
-  enum: (name, constrs) => (:),
-  array: (name, inner) => (:),
-  dict: (name, inner) => (:),
-  function: (name, dom, cod) => (:),
   fix: (name, fun) => spec-elim(
-    empty_case: () => (:),
-    builtin: type_ => (:),
-    any: () => (:),
-    union_case: (name, elems) => (:),
-    struct: (name, fields) => (:),
     enum: (name, constrs) => generate-enum-rec(spec, constrs),
-    array: (name, inner) => (:),
-    dict: (name, inner) => (:),
-    function: (name, dom, cod) => (:),
-    fix: (name, fun) => (:),
-    self: (..args) => (:),
+    __default__: (:)
   )(fun(spec)),
-  self: (..args) => (:),
+  __default__: (..args) => (:),
 )(spec)
 
 /// Builds a recursive fold directly from a spec and cases.

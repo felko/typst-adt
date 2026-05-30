@@ -10,5 +10,4 @@
 #assert.eq(any-intro((a: 1)).a, 1)
 #assert.eq(any-elim(x => x.a)(any-intro((a: 7))), 7)
 
-#assert.eq(adt.generate(adt.empty).len(), 0)
 #assert(result-is-err(adt.validate(adt.empty, none)))

@@ -1,17 +1,18 @@
 #import "../bootstrap.typ": *
 #import "../spec.typ": fun, struct
 #import "../validate.typ": *
+#import "../std.typ" as std
 #import "common.typ": *
 
 /// Builds a validated function application eliminator.
 /// -> function
 #let generate-function-elim(dom, cod) = value => (..args) => {
-  let value = result-unwrap(validate(
+  let value = pretty-result-unwrap(validate(
     (__tag__: "spec/function", name: auto, dom: dom, cod: cod),
     value,
   ))
-  let args = result-unwrap(validate-args(dom, ..args))
-  result-unwrap(validate(cod, value(..args)))
+  let args = pretty-result-unwrap(validate-args(dom, ..args))
+  pretty-result-unwrap(validate(cod, value(..args)))
 }
 
 /// Converts a constructor spec to function arguments.
@@ -56,12 +57,11 @@
 /// Enum eliminators require one case per constructor.
 /// -> dictionary
 #let generate-elim(spec) = spec-elim(
-  empty_case: () => (:),
   builtin: type_ => (elim: generate-value-elim(spec)),
   struct: (name, fields) => (
     elim: mk => value => {
-      let fields = result-unwrap(validate(spec, value))
-      if type(mk) == function {
+      let fields = pretty-result-unwrap(validate(spec, value))
+      if std.type(mk) == std.function {
         mk(..fields.values())
       } else {
         mk
@@ -69,7 +69,7 @@
     },
   ),
   any: () => (elim: f => x => f(x)),
-  union_case: (name, elems) => (elim: generate-value-elim(spec)),
+  union: (name, elems) => (elim: generate-value-elim(spec)),
   enum: (name, constrs) => (
     elim: (..cases) => {
       assert(
@@ -96,25 +96,24 @@
             .join(", "),
       )
       value => {
-        if type(value) == dictionary and value.keys().contains("__tag__") {
+        if std.type(value) == std.dictionary and value.keys().contains("__tag__") {
           let tag = value.remove("__tag__").split("/").last()
-          let args = result-unwrap(project-constr(spec.constrs.at(tag), value))
+          let args = pretty-result-unwrap(project-constr(spec.constrs.at(tag), value))
           let case = cases.at(tag)
-          if type(case) == function {
+          if std.type(case) == std.function {
             case(..args.values())
           } else {
             case
           }
         } else {
-          panic("not an enum value: `" + repr(value) + "`")
+          panic("not an enum value", value)
         }
       }
     },
   ),
   array: (name, inner) => (elim: generate-value-elim(spec)),
-  dict: (name, inner) => (elim: generate-value-elim(spec)),
+  dictionary: (name, inner) => (elim: generate-value-elim(spec)),
   function: (name, dom, cod) => (elim: generate-function-elim(dom, cod)),
   fix: (name, fun) => generate-elim(fun(spec)),
   self: (..args) => (:),
 )(spec)
-

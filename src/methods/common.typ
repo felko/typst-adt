@@ -1,21 +1,41 @@
 #import "../bootstrap.typ": *
 #import "../validate.typ": *
+#import "../std.typ" as std
 
 /// Returns whether a spec is a fixed-point spec.
 /// -> bool
 #let spec-is-fix(spec) = spec-elim(
-  empty_case: () => false,
-  builtin: type_ => false,
-  any: () => false,
-  union_case: (name, elems) => false,
-  enum: (name, constrs) => false,
-  struct: (name, fields) => false,
-  array: (name, inner) => false,
-  dict: (name, value) => false,
-  function: (name, dom, cod) => false,
   fix: (name, fun) => true,
-  self: depth => false,
+  __default__: false,
 )(spec)
+
+/// Builds a readable generated-constructor name for traces.
+/// -> str
+#let constr-trace-name(spec, tag) = {
+  let name = spec.at("name", default: auto)
+  if name == auto {
+    tag
+  } else {
+    str(name).split("(").first() + "-" + tag
+  }
+}
+
+/// Adds generated-constructor context to a result.
+/// -> RESULT(any)
+#let result-trace-constr(spec, tag, result) = {
+  if tag == none {
+    result
+  } else {
+    result-trace(
+      cont => (
+        __tag__: "trace/constr",
+        name: constr-trace-name(spec, tag),
+        cont: cont,
+      ),
+      result,
+    )
+  }
+}
 
 /// Projects constructor arguments into validated fields.
 ///
@@ -26,7 +46,14 @@
   null: {
     let named = args.named()
     if args.pos().len() != 0 or named.len() != 0 {
-      err("expected no arguments, got `" + repr(args) + "`")
+      err(
+        "expected no arguments",
+        trace: (
+          __tag__: "trace/constr-null",
+          constr-spec: constr-spec,
+          value: args,
+        ),
+      )
     } else {
       ok((:))
     }
@@ -36,7 +63,7 @@
     let ann = if named.keys().contains("__ann__") {
       let ann = named.remove("__ann__")
       assert(
-        type(ann) == dictionary,
+        std.type(ann) == std.dictionary,
         message: "expected `__ann__` to be a dictionary",
       )
       ann
@@ -50,7 +77,14 @@
       } else if ann.keys().contains(field-name) {
         ann.remove(field-name)
       } else if pos.len() == 0 {
-        return err("not enough arguments: `" + repr(args) + "`")
+        return err(
+          "not enough arguments",
+          trace: (
+            __tag__: "trace/constr-missing-arg",
+            constr-spec: constr-spec,
+            constr-arg: field-name,
+          ),
+        )
       } else {
         let (arg, ..new-pos) = pos
         pos = new-pos
@@ -61,7 +95,16 @@
       } else {
         let result = validate(field-spec, arg)
         if result-is-err(result) {
-          return result
+          return result-trace(
+            cont => (
+              __tag__: "trace/constr-field",
+              constr-spec: constr-spec,
+              constr-arg: field-name,
+              value: arg,
+              cont: cont,
+            ),
+            result,
+          )
         }
         fields.insert(field-name, result.value)
       }
@@ -70,7 +113,15 @@
       fields.insert(ann-name, ann-value)
     }
     if pos.len() > 0 or named.len() > 0 {
-      err("unrecognized arguments: `" + repr(arguments(..pos, ..named)) + "`")
+      let extra-args = arguments(..pos, ..named)
+      err(
+        "unrecognized arguments: " + repr(extra-args),
+        trace: (
+          __tag__: "trace/constr-extra-args",
+          constr-spec: constr-spec,
+          extra-args: extra-args,
+        ),
+      )
     } else {
       ok(fields)
     }
@@ -85,11 +136,14 @@
   null: if tag == none { (:) } else { (__tag__: tag) },
   fields: _ => {
     if tag == none {
-      (..args) => result-unwrap(validate-constr(constr-spec, ..args))
+      (..args) => pretty-result-unwrap(validate-constr(constr-spec, ..args))
     } else {
       (..args) => (
         __tag__: tag,
-        ..result-unwrap(validate-constr(constr-spec, ..args)),
+        ..pretty-result-unwrap(result-trace(
+          cont => (__tag__: "trace/constr", name: tag, cont: cont),
+          validate-constr(constr-spec, ..args),
+        )),
       )
     }
   },
@@ -99,15 +153,19 @@
 ///
 /// Generated constructors return plain values and do not attach methods.
 /// -> function | dictionary
-#let generate-constr-with-spec(tag, constr-spec) = constr-spec-elim(
+#let generate-constr-with-spec(spec, tag, constr-spec) = constr-spec-elim(
   null: if tag == none { (:) } else { (__tag__: tag) },
   fields: _ => {
     if tag == none {
-      (..args) => result-unwrap(project-constr-args(constr-spec, ..args))
+      (..args) => pretty-result-unwrap(project-constr-args(constr-spec, ..args))
     } else {
       (..args) => (
         __tag__: tag,
-        ..result-unwrap(project-constr-args(constr-spec, ..args)),
+        ..pretty-result-unwrap(result-trace-constr(
+          spec,
+          tag,
+          project-constr-args(constr-spec, ..args),
+        )),
       )
     }
   },
@@ -115,13 +173,13 @@
 
 /// Builds an intro function for plain validated values.
 /// -> function
-#let generate-value-intro(spec) = value => result-unwrap(validate(spec, value))
+#let generate-value-intro(spec) = value => pretty-result-unwrap(validate(spec, value))
 
 /// Builds an eliminator for plain validated values.
 /// -> function
 #let generate-value-elim(spec) = f => value => {
-  let value = result-unwrap(validate(spec, value))
-  if type(f) == function {
+  let value = pretty-result-unwrap(validate(spec, value))
+  if std.type(f) == std.function {
     f(value)
   } else {
     f
@@ -138,14 +196,30 @@
     let fields = (:)
     for (field-name, field-spec) in field-specs.pairs() {
       if not value.keys().contains(field-name) {
-        return err("missing field `" + field-name + "`")
+        return err(
+          "missing field `" + field-name + "`",
+          trace: (
+            __tag__: "trace/constr-missing-field",
+            constr-spec: constr-spec,
+            constr-arg: field-name,
+          ),
+        )
       }
       if spec-is-fix(field-spec) {
         fields.insert(field-name, value.at(field-name))
       } else {
         let result = validate(field-spec, value.at(field-name))
         if result-is-err(result) {
-          return result
+          return result-trace(
+            cont => (
+              __tag__: "trace/constr-field",
+              constr-spec: constr-spec,
+              constr-arg: field-name,
+              value: value.at(field-name),
+              cont: cont,
+            ),
+            result,
+          )
         }
         fields.insert(field-name, result.value)
       }

@@ -1,4 +1,5 @@
 #import "bootstrap.typ": *
+#import "std.typ" as std
 
 /// Builds a spec for a builtin Typst type.
 ///
@@ -10,8 +11,8 @@
   type_,
 ) = {
   assert(
-    type(type_) == type,
-    message: "expected type, got " + repr(type(type_)),
+    std.type(type_) == std.type,
+    message: "expected type, got " + repr(std.type(type_)),
   )
   (
     __tag__: "spec/builtin",
@@ -44,6 +45,8 @@
   named: result-unwrap(result-all-dict(validate, named)),
 )
 
+#let args-spec-fields = args-spec-fields-aux.with(spec-parse)
+
 /// Constructor spec for constructors with no fields.
 /// -> constr-spec
 #let constr-spec-null = (__tag__: "constr-spec/null")
@@ -74,7 +77,9 @@
 /// Spec that accepts no values.
 /// -> spec
 #let empty = (
-  __tag__: "spec/empty",
+  __tag__: "spec/union",
+  name: "empty",
+  elems: (),
 )
 
 /// Builds an enum spec from named constructors.
@@ -199,7 +204,7 @@
   /// -> function
   fun,
 ) = {
-  if type(fun) != function {
+  if std.type(fun) != std.function {
     panic("not a functor: `" + repr(fun) + "`")
   }
   (
@@ -236,10 +241,9 @@
     (:..fields, ..ann-fields)
   }
   let add-ann(spec) = spec-elim(
-    empty_case: () => empty,
     builtin: type_ => panic("cannot annotate builtin spec"),
     any: () => panic("cannot annotate any spec"),
-    union_case: (name, elems) => panic("cannot annotate union spec"),
+    union: (name, elems) => panic("cannot annotate union spec"),
     enum: (name, constrs) => (
       __tag__: "spec/enum",
       name: name,
@@ -263,7 +267,7 @@
       fields: add-fields(fields),
     ),
     array: (name, inner) => panic("cannot annotate array spec"),
-    dict: (name, value) => panic(
+    dictionary: (name, value) => panic(
       "cannot annotate dictionary spec",
     ),
     function: (name, dom, cod) => panic("cannot annotate function spec"),
@@ -285,14 +289,13 @@
   /// -> spec
   spec,
 ) = spec-elim(
-  empty_case: () => (),
   builtin: type_ => (spec,),
   any: () => (spec,),
-  union_case: (name, elems) => elems,
+  union: (name, elems) => elems,
   enum: (name, constrs) => (spec,),
   struct: (name, fields) => (spec,),
   array: (name, inner) => (spec,),
-  dict: (name, value) => (spec,),
+  dictionary: (name, value) => (spec,),
   function: (name, dom, cod) => (spec,),
   fix: (name, fun) => (spec,),
   self: depth => (spec,),
@@ -374,7 +377,7 @@
 ///
 /// - `value`: Spec for each value.
 /// -> spec
-#let dict(
+#let dictionary(
   /// Optional display name.
   /// -> str | auto
   __name__: auto,
@@ -384,13 +387,16 @@
 ) = {
   result-unwrap(result-map(
     value => (
-      __tag__: "spec/dict",
+      __tag__: "spec/dictionary",
       name: __name__,
       value: value,
     ),
     spec-parse(value),
   ))
 }
+
+/// Backwards-compatible shorthand for `dictionary`.
+#let dict = dictionary
 
 /// Builds a function spec from domain arguments and a codomain.
 ///
@@ -416,7 +422,7 @@
 
 /// Spec for names used by specs.
 /// -> spec
-#let SPEC-NAME = union(str, type(auto))
+#let SPEC-NAME = union(str, std.type(auto))
 
 /// Spec for function argument specs parameterized by an inner spec.
 /// -> spec
@@ -429,7 +435,7 @@
   null: none,
   args: (
     pos: array(T),
-    named: dict(T),
+    named: dictionary(T),
   ),
 )
 
@@ -443,7 +449,7 @@
   __name__: "constr-spec(" + to-string(T) + ")",
   null: none,
   fields: (
-    fields: dict(T),
+    fields: dictionary(T),
   ),
 )
 
@@ -455,16 +461,77 @@
   __name__: "spec",
   self => enum(
     __name__: "spec-shape",
-    empty: none,
-    builtin: (name: SPEC-NAME, value: type),
+    builtin: (name: SPEC-NAME, value: std.type),
     any: none,
-    enum: (name: SPEC-NAME, constrs: dict(CONSTR-SPEC(self))),
-    struct: (name: SPEC-NAME, fields: dict(self)),
+    enum: (name: SPEC-NAME, constrs: dictionary(CONSTR-SPEC(self))),
+    struct: (name: SPEC-NAME, fields: dictionary(self)),
     union: (name: SPEC-NAME, elems: array(self)),
     array: (name: SPEC-NAME, inner: self),
-    dict: (name: SPEC-NAME, value: self),
+    dictionary: (name: SPEC-NAME, value: self),
     function: (name: SPEC-NAME, dom: ARGS-SPEC(self), cod: self),
     fix: (name: str, fun: fun(self)(self)),
     self: (depth: int),
+  ),
+)
+
+/// Structured context attached to validation errors.
+///
+/// Each frame records the outer validation step and points to the more specific
+/// error through `cont`.
+/// -> spec
+#let TRACE = fix(
+  __name__: "trace",
+  self => enum(
+    __name__: "trace-shape",
+    root: none,
+    val: (spec: SPEC, value: any, cont: self),
+    constr-null: (constr-spec: CONSTR-SPEC(SPEC), value: arguments),
+    constr-field: (
+      constr-spec: CONSTR-SPEC(SPEC),
+      constr-arg: str,
+      value: any,
+      cont: self,
+    ),
+    constr: (name: str, cont: self),
+    constr-missing-arg: (
+      constr-spec: CONSTR-SPEC(SPEC),
+      constr-arg: str,
+    ),
+    constr-extra-args: (
+      constr-spec: CONSTR-SPEC(SPEC),
+      extra-args: arguments,
+    ),
+    constr-missing-field: (
+      constr-spec: CONSTR-SPEC(SPEC),
+      constr-arg: str,
+    ),
+    args-null: (extra-args: arguments),
+    args-arity: (
+      args-spec: ARGS-SPEC(SPEC),
+      value: arguments,
+    ),
+    args-extra-named: (
+      args-spec: ARGS-SPEC(SPEC),
+      extra-args: dictionary(any),
+    ),
+    args-missing-named: (
+      args-spec: ARGS-SPEC(SPEC),
+      missing-args: array(str),
+    ),
+    args-pos-arg: (
+      args-spec: ARGS-SPEC(SPEC),
+      index: int,
+      value: any,
+      cont: self,
+    ),
+    args-named-arg: (
+      args-spec: ARGS-SPEC(SPEC),
+      name: str,
+      value: any,
+      cont: self,
+    ),
+    array-val: (index: int, value: any, cont: self),
+    dictionary-val: (key: str, value: any, cont: self),
+    union: (spec: SPEC, value: any, cont: self),
   ),
 )
