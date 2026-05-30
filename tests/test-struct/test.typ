@@ -10,6 +10,7 @@
 #let (intro: box, elim: box-elim) = adt.generate(BOX)
 #assert.eq(box(4).value, 4)
 #assert.eq(box(value: 5).value, 5)
+#assert.eq(adt.intro(BOX, 6).value, 6)
 #assert.eq(box-elim(value => value + 1)(box(4)), 5)
 #assert(result-is-err(adt.validate(BOX, (value: "bad"))))
 

@@ -52,73 +52,86 @@
   )(spec),
 )
 
+/// Builds a struct eliminator from its single case.
+/// -> function
+#let elim-struct(spec, mk) = value => {
+  let fields = pretty-result-unwrap(validate(spec, value))
+  if std.type(mk) == std.function {
+    mk(..fields.values())
+  } else {
+    mk
+  }
+}
+
+/// Builds an `any` eliminator from its single case.
+/// -> function
+#let elim-any(f) = x => f(x)
+
+/// Eliminates a value directly from a spec.
+///
+/// Enum specs require one named case per constructor.
+/// -> function
+#let elim(spec, ..cases) = spec-elim(
+  builtin: type_ => generate-value-elim(spec)(..cases),
+  struct: (name, fields) => elim-struct(spec, ..cases),
+  any: () => elim-any(..cases),
+  union: (name, elems) => generate-value-elim(spec)(..cases),
+  enum: (name, constrs) => {
+    assert(
+      cases.pos().len() == 0,
+      message: "expected no positional arguments, got " + repr(cases.pos()),
+    )
+    let named-cases = cases.named()
+    assert(
+      named-cases.keys().all(k => constrs.keys().contains(k)),
+      message: "unrecognized cases: "
+        + named-cases
+          .keys()
+          .filter(k => not constrs.keys().contains(k))
+          .map(k => "`" + k + "`")
+          .join(", "),
+    )
+    assert(
+      constrs.keys().all(k => named-cases.keys().contains(k)),
+      message: "missing cases: "
+        + constrs
+          .keys()
+          .filter(k => not named-cases.keys().contains(k))
+          .map(k => "`" + k + "`")
+          .join(", "),
+    )
+    value => {
+      if (
+        std.type(value) == std.dictionary and value.keys().contains("__tag__")
+      ) {
+        let tag = value.remove("__tag__").split("/").last()
+        let args = pretty-result-unwrap(project-constr(
+          spec.constrs.at(tag),
+          value,
+        ))
+        let case = named-cases.at(tag)
+        if std.type(case) == std.function {
+          case(..args.values())
+        } else {
+          case
+        }
+      } else {
+        panic("not an enum value", value)
+      }
+    }
+  },
+  array: (name, inner) => generate-value-elim(spec)(..cases),
+  dictionary: (name, inner) => generate-value-elim(spec)(..cases),
+  function: (name, dom, cod) => generate-function-elim(dom, cod)(..cases),
+  fix: (name, fun) => elim(fun(spec), ..cases),
+  self: (..args) => panic("self specs do not support direct eliminators"),
+)(spec)
+
 /// Generates eliminators for a spec.
 ///
 /// Enum eliminators require one case per constructor.
 /// -> dictionary
 #let generate-elim(spec) = spec-elim(
-  builtin: type_ => (elim: generate-value-elim(spec)),
-  struct: (name, fields) => (
-    elim: mk => value => {
-      let fields = pretty-result-unwrap(validate(spec, value))
-      if std.type(mk) == std.function {
-        mk(..fields.values())
-      } else {
-        mk
-      }
-    },
-  ),
-  any: () => (elim: f => x => f(x)),
-  union: (name, elems) => (elim: generate-value-elim(spec)),
-  enum: (name, constrs) => (
-    elim: (..cases) => {
-      assert(
-        cases.pos().len() == 0,
-        message: "expected no positional arguments, got " + repr(cases.pos()),
-      )
-      cases = cases.named()
-      assert(
-        cases.keys().all(k => constrs.keys().contains(k)),
-        message: "unrecognized cases: "
-          + cases
-            .keys()
-            .filter(k => not constrs.keys().contains(k))
-            .map(k => "`" + k + "`")
-            .join(", "),
-      )
-      assert(
-        constrs.keys().all(k => cases.keys().contains(k)),
-        message: "missing cases: "
-          + constrs
-            .keys()
-            .filter(k => not cases.keys().contains(k))
-            .map(k => "`" + k + "`")
-            .join(", "),
-      )
-      value => {
-        if (
-          std.type(value) == std.dictionary and value.keys().contains("__tag__")
-        ) {
-          let tag = value.remove("__tag__").split("/").last()
-          let args = pretty-result-unwrap(project-constr(
-            spec.constrs.at(tag),
-            value,
-          ))
-          let case = cases.at(tag)
-          if std.type(case) == std.function {
-            case(..args.values())
-          } else {
-            case
-          }
-        } else {
-          panic("not an enum value", value)
-        }
-      }
-    },
-  ),
-  array: (name, inner) => (elim: generate-value-elim(spec)),
-  dictionary: (name, inner) => (elim: generate-value-elim(spec)),
-  function: (name, dom, cod) => (elim: generate-function-elim(dom, cod)),
-  fix: (name, fun) => generate-elim(fun(spec)),
   self: (..args) => (:),
+  __default__: (..args) => (elim: elim.with(spec)),
 )(spec)

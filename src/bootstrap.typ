@@ -387,6 +387,16 @@
             )
           }
         }
+      } else if tag == "spec/self" {
+        let depth = spec.remove("depth")
+        if spec.len() == 0 {
+          self(depth)
+        } else {
+          panic(
+            "too many fields in `spec/self`: "
+              + spec.keys().map(key => "`" + key + "`").join(", "),
+          )
+        }
       } else {
         panic("unknown spec kind: `" + tag + "`")
       }
@@ -707,6 +717,26 @@
         } else {
           err(
             "expected array for `spec/union` elements, got " + repr(elems),
+          )
+        }
+      } else if tag == "spec/struct" {
+        let name = spec.remove("name", default: auto)
+        let fields = spec.remove("fields")
+        if std.type(fields) == std.dictionary {
+          if spec.len() == 0 {
+            result-map(
+              fields => (__tag__: "spec/struct", name: name, fields: fields),
+              result-all-dict(spec-parse, fields),
+            )
+          } else {
+            err(
+              "too many fields in `spec/struct`: " + repr(spec.keys()),
+            )
+          }
+        } else {
+          err(
+            "expected dictionary for `spec/struct` fields, got "
+              + repr(fields),
           )
         }
       } else if tag == "spec/array" {

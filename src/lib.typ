@@ -9,7 +9,7 @@
   spec-parse, struct, union,
 )
 #import "validate.typ": validate, validate-args, validate-constr
-#import "generate.typ": annotate, generate, rec
+#import "generate.typ": annotate, elim, generate, intro, rec, repr
 #import "bootstrap.typ": result-error-to-string, to-string, trace-to-string
 
 #let result-unwrap = result.result-unwrap-with.with(result-error-to-string)

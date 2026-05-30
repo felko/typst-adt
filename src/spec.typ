@@ -120,9 +120,10 @@
         + "`: "
         + constr-err-msg,
     )
-  } else if errs.len() > 1 {
-    panic(
-      "invalid constructor specifications for enum type:\n"
+  } else {
+    assert.eq(
+      errs.len(), 0,
+      message: "invalid constructor specifications for enum type:\n"
         + errs
           .pairs()
           .map(((constr-name, constr-err-msg)) => (

@@ -5,6 +5,7 @@
 #import "methods/fields.typ": *
 #import "methods/rec.typ": *
 #import "methods/annotate.typ": *
+#import "methods/repr.typ": *
 
 /// Generates all helpers available for a spec.
 ///
@@ -13,6 +14,7 @@
 /// -> dictionary
 #let generate(spec) = (
   validate: validate.with(spec),
+  repr: repr.with(spec),
   ..generate-intro(spec),
   ..generate-elim(spec),
   ..generate-is(spec),

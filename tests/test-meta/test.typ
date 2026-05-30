@@ -10,10 +10,15 @@
   RESULT(int),
 )))
 #assert.eq(adt.validate(SPEC, adt.struct(x: int)), ok(adt.struct(x: int)))
+#assert.eq(
+  result-unwrap(adt.spec-parse(adt.struct(x: adt.array(int)))),
+  adt.struct(x: adt.array(int)),
+)
 #assert.eq(adt.validate(SPEC, adt.fun(int)(str)), ok(adt.fun(int)(str)))
 #assert.eq(adt.validate(SPEC, adt.dict(adt.array(int))), ok(
   adt.dictionary(adt.array(int)),
 ))
+#assert.eq(adt.to-string(adt.fix(self => self)), "fix self@0. self@0")
 
 #assert.eq(adt.constr-spec-parse(RESULT(int).constrs.ok).value.fields.keys(), (
   "value",

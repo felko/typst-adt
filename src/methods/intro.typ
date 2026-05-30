@@ -28,36 +28,57 @@
     .to-dict()
 )
 
+/// Returns constructor-specific intros for an enum spec.
+/// -> dictionary(str, function)
+#let intro-enum(spec, constrs) = generate-enum-intros(spec, constrs)
+
+/// Introduces a value directly from a spec.
+///
+/// Enum specs return a dictionary containing one intro per constructor.
+/// -> any
+#let intro(spec, ..args) = spec-elim(
+  builtin: type_ => generate-value-intro(spec)(..args),
+  any: () => generate-value-intro(spec)(..args),
+  union: (name, elems) => generate-value-intro(spec)(..args),
+  struct: (name, fields) => generate-constr-with-spec(
+    spec,
+    none,
+    (__tag__: "constr-spec/fields", fields: fields),
+  )(..args),
+  enum: (name, constrs) => intro-enum(spec, constrs, ..args),
+  array: (name, inner) => generate-value-intro(spec)(..args),
+  dictionary: (name, inner) => generate-value-intro(spec)(..args),
+  function: (name, dom, cod) => generate-function-intro(dom, cod)(..args),
+  fix: (name, fun) => spec-elim(
+    struct: (name, fields) => generate-constr-with-spec(
+      spec,
+      none,
+      (__tag__: "constr-spec/fields", fields: fields),
+    )(..args),
+    enum: (name, constrs) => intro-enum(spec, constrs, ..args),
+    __default__: (..args) => panic("spec does not support direct intros"),
+  )(fun(spec)),
+  self: (..args) => panic("self specs do not support direct intros"),
+)(spec)
+
 /// Generates intro helpers for a spec.
 ///
 /// Returns `intro` for most specs and both `intro`/`intros` for enums.
 /// -> dictionary
 #let generate-intro(spec) = spec-elim(
-  builtin: type_ => (intro: generate-value-intro(spec)),
-  any: () => (intro: value => value),
-  union: (name, elems) => (intro: generate-value-intro(spec)),
-  struct: (name, fields) => (
-    intro: generate-constr-with-spec(
-      spec,
-      none,
-      (__tag__: "constr-spec/fields", fields: fields),
-    ),
-  ),
+  builtin: type_ => (intro: intro.with(spec)),
+  any: () => (intro: intro.with(spec)),
+  union: (name, elems) => (intro: intro.with(spec)),
+  struct: (name, fields) => (intro: intro.with(spec)),
   enum: (name, constrs) => {
     let intros = generate-enum-intros(spec, constrs)
     (intro: intros, intros: intros)
   },
-  array: (name, inner) => (intro: generate-value-intro(spec)),
-  dictionary: (name, inner) => (intro: generate-value-intro(spec)),
-  function: (name, dom, cod) => (intro: generate-function-intro(dom, cod)),
+  array: (name, inner) => (intro: intro.with(spec)),
+  dictionary: (name, inner) => (intro: intro.with(spec)),
+  function: (name, dom, cod) => (intro: intro.with(spec)),
   fix: (name, fun) => spec-elim(
-    struct: (name, fields) => (
-      intro: generate-constr-with-spec(
-        spec,
-        none,
-        (__tag__: "constr-spec/fields", fields: fields),
-      ),
-    ),
+    struct: (name, fields) => (intro: intro.with(spec)),
     enum: (name, constrs) => {
       let intros = generate-enum-intros(spec, constrs)
       (intro: intros, intros: intros)
