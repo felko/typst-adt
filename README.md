@@ -91,7 +91,24 @@ destructuring `adt.generate(spec)`.
 
 ## Annotations
 
-Annotate a full 
+Use `adt.annotate` to describe a recursive enum with additional fields. The
+generated `annotate` pass computes those fields bottom-up, so each constructor
+case can use annotations from its recursive children.
+
+```typst
+#let SIZED-LIST = adt.annotate(LIST(int), size: int)
+#let (annotate: list-annotate) = adt.generate(LIST(int))
+
+#let sized = list-annotate(
+  __ann__: (size: int),
+  nil: (size: 0),
+  cons: (head, tail) => (size: tail.size + 1),
+)(list(1, 2, 3))
+
+#assert.eq(sized.size, 3)
+#assert.eq(sized.tail.size, 2)
+#assert.eq(adt.validate(SIZED-LIST, sized), adt.ok(sized))
+```
 
 ## Development
 
