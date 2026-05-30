@@ -173,7 +173,10 @@
 
 /// Builds an intro function for plain validated values.
 /// -> function
-#let generate-value-intro(spec) = value => pretty-result-unwrap(validate(spec, value))
+#let generate-value-intro(spec) = value => pretty-result-unwrap(validate(
+  spec,
+  value,
+))
 
 /// Builds an eliminator for plain validated values.
 /// -> function

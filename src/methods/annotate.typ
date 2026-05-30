@@ -44,7 +44,10 @@
           .join(", "),
     )
     let go(value) = {
-      if std.type(value) != std.dictionary or not value.keys().contains("__tag__") {
+      if (
+        std.type(value) != std.dictionary
+          or not value.keys().contains("__tag__")
+      ) {
         panic("not an enum value", value)
       }
       let tag = value.remove("__tag__").split("/").last()

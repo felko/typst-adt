@@ -1,4 +1,6 @@
-#import "../../src/lib.typ" as adt: RESULT, SPEC, ok, result-unwrap, result-and-then
+#import "../../src/lib.typ" as adt: (
+  RESULT, SPEC, ok, result-and-then, result-unwrap,
+)
 
 #assert.eq(result-unwrap(adt.spec-parse(RESULT(int))).__tag__, "spec/enum")
 #assert.eq(adt.validate(SPEC, SPEC), ok(SPEC))

@@ -96,9 +96,14 @@
             .join(", "),
       )
       value => {
-        if std.type(value) == std.dictionary and value.keys().contains("__tag__") {
+        if (
+          std.type(value) == std.dictionary and value.keys().contains("__tag__")
+        ) {
           let tag = value.remove("__tag__").split("/").last()
-          let args = pretty-result-unwrap(project-constr(spec.constrs.at(tag), value))
+          let args = pretty-result-unwrap(project-constr(
+            spec.constrs.at(tag),
+            value,
+          ))
           let case = cases.at(tag)
           if std.type(case) == std.function {
             case(..args.values())

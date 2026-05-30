@@ -126,7 +126,10 @@
           .join(", "),
     )
     let go(value) = {
-      if std.type(value) != std.dictionary or not value.keys().contains("__tag__") {
+      if (
+        std.type(value) != std.dictionary
+          or not value.keys().contains("__tag__")
+      ) {
         panic("not an enum value", value)
       }
       let tag = value.remove("__tag__").split("/").last()
@@ -179,7 +182,7 @@
 #let generate-rec(spec) = spec-elim(
   fix: (name, fun) => spec-elim(
     enum: (name, constrs) => generate-enum-rec(spec, constrs),
-    __default__: (:)
+    __default__: (:),
   )(fun(spec)),
   __default__: (..args) => (:),
 )(spec)

@@ -1,8 +1,16 @@
-#import "result.typ" as result: ok, err, result-validate, result-is-ok, result-is-err, result-trace, result-any, result-and-then, result-or-else, result-map, result-map2, result-all, result-all-dict, result-zip, result-zip-dict
-#import "spec.typ": SPEC, TRACE, builtin, enum, struct, fix, union, fun, any, empty, array, dict, dictionary, spec-parse, args-spec-null, args-spec-fields, args-spec-parse, constr-spec-parse
-#import "validate.typ": validate, validate-constr, validate-args
-#import "generate.typ": generate, annotate, rec
-#import "bootstrap.typ": to-string, trace-to-string, result-error-to-string
+#import "result.typ" as result: (
+  err, ok, result-all, result-all-dict, result-and-then, result-any,
+  result-is-err, result-is-ok, result-map, result-map2, result-or-else,
+  result-trace, result-validate, result-zip, result-zip-dict,
+)
+#import "spec.typ": (
+  SPEC, TRACE, any, args-spec-fields, args-spec-null, args-spec-parse, array,
+  builtin, constr-spec-parse, dict, dictionary, empty, enum, fix, fun,
+  spec-parse, struct, union,
+)
+#import "validate.typ": validate, validate-args, validate-constr
+#import "generate.typ": annotate, generate, rec
+#import "bootstrap.typ": result-error-to-string, to-string, trace-to-string
 
 #let result-unwrap = result.result-unwrap-with.with(result-error-to-string)
 

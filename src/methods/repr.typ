@@ -6,11 +6,16 @@
 #let constr-repr(constr-spec, data) = constr-spec-elim(
   null: "",
   fields: fields => {
-    "(" + fields
-    .pairs()
-    .map(((field-name, field-spec)) => {
-      repr(field-spec, data.at(field-name))
-    }).join(", ") + ")"
+    (
+      "("
+        + fields
+          .pairs()
+          .map(((field-name, field-spec)) => {
+            repr(field-spec, data.at(field-name))
+          })
+          .join(", ")
+        + ")"
+    )
   },
 )
 
@@ -25,17 +30,32 @@
         return repr(elem, value)
       }
     }
-    panic("value " + std.repr(value) + " does not inhabit of any of " + elems.map(t => "`" + to-string(t) + "`").join(", ", last: " or "))
+    panic(
+      "value "
+        + std.repr(value)
+        + " does not inhabit of any of "
+        + elems.map(t => "`" + to-string(t) + "`").join(", ", last: " or "),
+    )
   },
-  struct: (name, fields) => (if name == auto { "" } else { name + " " }) + "{ " + fields
-    .pairs()
-    .map(((field-name, field-spec)) => {
-      field-name + ": " + repr(field-spec, value.at(field-name))
-    }).join(", ") + " }",
+  struct: (name, fields) => (
+    (if name == auto { "" } else { name + " " })
+      + "{ "
+      + fields
+        .pairs()
+        .map(((field-name, field-spec)) => {
+          field-name + ": " + repr(field-spec, value.at(field-name))
+        })
+        .join(", ")
+      + " }"
+  ),
   enum: (name, constrs) => {
     let tag = value.remove("__tag__")
     let constr-spec = constrs.at(tag)
-    (if name == auto { "" } else { name + "/" }) + tag + constr-repr(constr-spec, value)
+    (
+      (if name == auto { "" } else { name + "/" })
+        + tag
+        + constr-repr(constr-spec, value)
+    )
   },
   array: (name, inner) => std.repr(value),
   dictionary: (name, inner) => std.repr(value),

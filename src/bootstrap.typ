@@ -129,7 +129,8 @@
             }
           } else {
             err(
-              "too many fields in `constr-spec/null`: " + repr(constr-spec.keys()),
+              "too many fields in `constr-spec/null`: "
+                + repr(constr-spec.keys()),
             )
           }
         } else if tag == "constr-spec/fields" {
@@ -142,7 +143,8 @@
             fields(fields_)
           } else {
             err(
-              "too many fields in `constr-spec/fields`: " + repr(constr-spec.keys()),
+              "too many fields in `constr-spec/fields`: "
+                + repr(constr-spec.keys()),
             )
           }
         } else {
@@ -199,7 +201,18 @@
   /// -> function
   __default__: auto,
 ) = spec => {
-  let (builtin, any, union, enum, struct, array, dictionary, function, fix, self) = if __default__ == auto {
+  let (
+    builtin,
+    any,
+    union,
+    enum,
+    struct,
+    array,
+    dictionary,
+    function,
+    fix,
+    self,
+  ) = if __default__ == auto {
     let missing-cases = (
       builtin: builtin,
       any: any,
@@ -220,13 +233,27 @@
     } else if missing-cases.len() > 1 {
       panic(
         "missing cases: "
-          + missing-cases.map(case => "`" + case + "`").join(", ") + "; either fill them in or specify a `__default__` case",
+          + missing-cases.map(case => "`" + case + "`").join(", ")
+          + "; either fill them in or specify a `__default__` case",
       )
     }
     (builtin, any, union, enum, struct, array, dictionary, function, fix, self)
   } else {
-    (builtin, any, union, enum, struct, array, dictionary, function, fix, self).map(case => if case == auto { __default__ } else { case })
-  }.map(case => if std.type(case) == std.function { case } else { (.. args) => case })
+    (
+      builtin,
+      any,
+      union,
+      enum,
+      struct,
+      array,
+      dictionary,
+      function,
+      fix,
+      self,
+    ).map(case => if case == auto { __default__ } else { case })
+  }.map(case => if std.type(case) == std.function { case } else {
+    (..args) => case
+  })
   if std.type(spec) == std.type {
     builtin(spec)
   } else if std.type(spec) == std.dictionary {
@@ -264,7 +291,7 @@
         } else {
           panic(
             "expected dictionary for `spec/enum` constructors, got",
-            constrs
+            constrs,
           )
         }
       } else if tag == "spec/union" {
@@ -459,7 +486,8 @@
             ok((__tag__: "args-spec/null"))
           } else {
             err(
-              "too many fields in `args-spec/null`: " + repr(constr-spec.keys()),
+              "too many fields in `args-spec/null`: "
+                + repr(constr-spec.keys()),
             )
           }
         } else if tag == "args-spec/args" {
@@ -493,7 +521,8 @@
             ))
           } else {
             err(
-              "too many fields in `args-spec/args`: " + repr(constr-spec.keys()),
+              "too many fields in `args-spec/args`: "
+                + repr(constr-spec.keys()),
             )
           }
         }
@@ -539,7 +568,8 @@
           ok((__tag__: "constr-spec/null"))
         } else {
           err(
-            "too many fields in `constr-spec/null`: " + repr(constr-spec.keys()),
+            "too many fields in `constr-spec/null`: "
+              + repr(constr-spec.keys()),
           )
         }
       } else if tag == "constr-spec/fields" {
@@ -547,7 +577,8 @@
           let fields = constr-spec.remove("fields")
           if constr-spec.len() > 0 {
             err(
-              "too many fields for `constr-spec/fields`: " + repr(constr-spec.keys()),
+              "too many fields for `constr-spec/fields`: "
+                + repr(constr-spec.keys()),
             )
           } else {
             result-map(
@@ -655,7 +686,8 @@
           )
         } else {
           err(
-            "expected dictionary for `spec/enum` constructors, got " + repr(constrs),
+            "expected dictionary for `spec/enum` constructors, got "
+              + repr(constrs),
           )
         }
       } else if tag == "spec/union" {
@@ -875,10 +907,7 @@
 /// Indents every line in a diagnostic block.
 /// -> str
 #let diagnostic-indent(text, prefix: "      ") = (
-  text
-    .split("\n")
-    .map(line => prefix + line)
-    .join("\n")
+  text.split("\n").map(line => prefix + line).join("\n")
 )
 
 /// Renders one GHC-style diagnostic bullet.
