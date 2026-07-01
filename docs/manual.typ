@@ -1,0 +1,315 @@
+#import "../src/lib.typ" as adt: ok, result-is-err, result-is-ok
+#import "@preview/tidy:0.4.3"
+
+#set document(
+  title: "typst-adt manual",
+  author: "felko",
+)
+#set page(margin: 1in)
+#set text(size: 10pt)
+#show heading: it => {
+  set block(above: 1.2em, below: 0.5em)
+  it
+}
+
+= typst-adt
+
+`adt` is a Typst package for describing algebraic data types and generic type wrappers over builtin types. From the description of a type specification (hereinafter referred to as a "spec"), `adt` generates corresponding validation functions, constructors, eliminators, field accessors,
+recursive folds, and annotation passes.
+
+It has the following properties:
+- First-class: specs are regular Typst values, functors are regular Typst functions from specs to specs;
+- Bootstrapped: the specs themselves are described by an algebraic datatype and are able to be validated as well as matched on;
+- Non-intrusive: besides sum types (`enum`s) which have a designated tag field, the values need not to carry any sort of type information;
+- Non-infectious: as a consequence of the above, neither dependencies nor dependents need conversion.
+
+== Specs
+
+`adt` bootstraps its type system and provides an algebraic datatype representing type specifications. Here it is for reference, which you can simultaneously think of as the example and the concept:
+
+```typst
+#let SPEC-NAME = adt.union(str, type(auto))
+
+#let ARGS-SPEC(SPEC) = adt.enum(
+  __name__: "args-spec(" + adt.to-string(SPEC) + ")",
+  null: none,
+  args: (pos: adt.array(SPEC), named: adt.dict(SPEC)),
+)
+
+#let CONSTR-SPEC(SPEC) = adt.enum(
+  __name__: "constr-spec(" + adt.to-string(SPEC) + ")",
+  null: none,
+  fields: (fields: adt.dict(SPEC)),
+)
+
+#let SPEC = adt.fix(
+  __name__: "spec",
+  self => adt.enum(
+    __name__: "spec-shape",
+    empty: none,
+    builtin: (name: SPEC-NAME, value: type),
+    any: none,
+    enum: (name: SPEC-NAME, constrs: adt.dict(CONSTR-SPEC(self))),
+    struct: (name: SPEC-NAME, fields: adt.dict(self)),
+    union: (name: SPEC-NAME, elems: adt.array(self)),
+    array: (name: SPEC-NAME, inner: self),
+    dict: (name: SPEC-NAME, value: self),
+    function: (name: SPEC-NAME, dom: ARGS-SPEC(self), cod: self),
+    fix: (name: str, fun: adt.fun(self)(self)),
+    self: (depth: int),
+  ),
+)
+```
+
+=== Builtins
+
+Use Typst builtin types directly:
+
+```typst
+#assert.eq(adt.validate(int, 4), ok(4))
+#assert(result-is-err(adt.validate(int, "4")))
+```
+
+Use `adt.any` when any value is valid, and `adt.empty` when no value is valid.
+
+=== Structs
+
+Use `adt.struct` for dictionaries with fixed fields.
+
+```typst
+#let STYLE = adt.struct(__name__: "STYLE", size: length, color: color)
+#let (intro: style, elim: style-elim) = adt.generate(STYLE)
+
+#assert.eq(
+  style(12pt, red),
+  (size: 12pt, color: red)
+)
+#assert.eq(
+  style-elim((size, color) => style(
+    size + 8pt,
+    color
+  ))(style(12pt, red)),
+  style(20pt, red)
+)
+```
+
+=== Enums
+
+Use `adt.enum` for tagged variants.
+
+```typst
+#let TOKEN = adt.enum(
+  __name__: "TOKEN",
+  eof: none,
+  lit: int,
+  span: (start: int, end: int),
+)
+
+#let (
+  intro: (
+    eof: token-eof,
+    lit: token-lit,
+    span: token-span,
+  ),
+  elim: token-elim,
+) = adt.generate(TOKEN)
+
+#let token-kind = token-elim(
+  eof: "eof",
+  lit: value => "lit:" + str(value),
+  span: (start, end) => "span:" + str(end - start),
+)
+
+#assert.eq(token-kind(token-eof), "eof")
+#assert.eq(token-kind(token-lit(9)), "lit:9")
+#assert.eq(token-kind(token-span(3, 8)), "span:5")
+```
+
+Constructor shapes:
+
+- `none`: no fields.
+- `int`: one field named `value`.
+- `(start: int, end: int)`: named fields.
+
+=== Unions
+
+Use `adt.union` when a value may match any of several specs.
+
+```typst
+#let INT-OR-STR = adt.union(int, str)
+#let (intro: int-or-str, elim: int-or-str-elim) = adt.generate(INT-OR-STR)
+
+#assert.eq(int-or-str(4), 4)
+#assert.eq(int-or-str("ok"), "ok")
+#assert.eq(int-or-str-elim(value => str(value))(4), "4")
+#assert(result-is-err(adt.validate(INT-OR-STR, 1pt)))
+```
+
+Nested unions are flattened. `adt.union()` creates `adt.empty`.
+
+=== Arrays
+
+Use `adt.array(inner)` for arrays.
+
+```typst
+#let INTS = adt.array(int)
+#let (intro: ints, elim: ints-elim) = adt.generate(INTS)
+
+#assert.eq(ints((1, 2, 3)), (1, 2, 3))
+#assert.eq(ints-elim(xs => xs.len())(ints((1, 2, 3))), 3)
+#assert(result-is-err(adt.validate(INTS, (1, "bad"))))
+```
+
+=== Dictionaries
+
+Use `adt.dict(value)` for string-keyed dictionaries.
+
+```typst
+#let STR-INTS = adt.dict(int)
+#let (intro: str-ints, elim: str-ints-elim) = adt.generate(STR-INTS)
+
+#assert.eq(str-ints((a: 1, b: 2)).a, 1)
+#assert.eq(str-ints-elim(xs => xs.len())(str-ints((a: 1, b: 2))), 2)
+#assert(result-is-err(adt.validate(STR-INTS, (a: "bad"))))
+```
+
+=== Functions
+
+Use `adt.fun(..domain)(codomain)` for functions.
+
+```typst
+#let ADD = adt.fun(int, int)(int)
+#let (intro: add, elim: apply-add) = adt.generate(ADD)
+
+#assert.eq(add((x, y) => x + y)(2, 3), 5)
+#assert.eq(apply-add(add((x, y) => x * y))(4, 5), 20)
+```
+
+Named arguments are supported:
+
+```typst
+#let NAMED = adt.fun(left: int, right: int)(int)
+#let (intro: named-add) = adt.generate(NAMED)
+
+#assert.eq(named-add((left: 0, right: 0) => left + right)(
+  left: 2,
+  right: 3,
+), 5)
+```
+
+== Recursive specs
+
+Use `adt.fix` for recursive data.
+
+```typst
+#let LIST(T) = adt.fix(
+  __name__: "list(" + adt.to-string(T) + ")",
+  self => adt.enum(
+    nil: none,
+    cons: (head: T, tail: self),
+  ),
+)
+
+#let (
+  intro: (
+    nil: list-nil,
+    cons: list-cons,
+  ),
+  fields: (
+    head: list-head,
+    tail: list-tail,
+  ),
+  elim: list-elim,
+  rec: list-rec,
+  annotate: list-annotate,
+) = adt.generate(LIST(int))
+
+#let list(..args) = {
+  let xs = list-nil
+  for elem in args.pos().rev() {
+    xs = list-cons(elem, xs)
+  }
+  xs
+}
+
+#let one-two = list(1, 2)
+
+#assert.eq(list-head(one-two), 1)
+#assert.eq(list-tail(one-two).head, 2)
+
+#let length = list-rec(
+  nil: 0,
+  cons: (head, tail-len) => tail-len + 1,
+)
+
+#assert.eq(length(one-two), 2)
+```
+
+Generated values are plain data. Use generated helpers explicitly:
+
+```typst
+#assert.eq(list-elim(
+  nil: none,
+  cons: (head, tail) => head,
+)(one-two), 1)
+
+#assert.eq(list-rec(
+  nil: 0,
+  cons: (head, tail-len) => tail-len + 1,
+)(one-two), 2)
+```
+
+Use `adt.rec(spec, ..cases)` as a direct recursive fold helper when you do not
+need the rest of `adt.generate(spec)`.
+
+== Annotations
+
+Recursive enum values can be annotated in one pass.
+
+```typst
+#let SIZED-LIST = adt.annotate(LIST(int), size: int)
+
+#let sized = list-annotate(
+  __ann__: (size: int),
+  nil: (size: 0),
+  cons: (head, tail) => (size: tail.size + 1),
+)(list(1, 2))
+
+#assert.eq(sized.size, 2)
+#assert.eq(sized.tail.size, 1)
+#assert.eq(adt.validate(SIZED-LIST, sized), ok(sized))
+```
+
+== Results
+
+```typst
+#let good = ok(4)
+#let bad = err("expected int")
+
+#assert.eq(good.value, 4)
+#assert(result-is-ok(good))
+#assert(result-is-err(bad))
+```
+
+Useful helpers:
+
+- `adt.result-map(f, result)`
+- `adt.result-map2(f, a, b)`
+- `adt.result-and-then(result, cont)`
+- `adt.result-all(f, xs)`
+- `adt.result-all-dict(f, xs)`
+- `adt.result-any(f, xs)`
+- `adt.result-unwrap(result)`
+
+== Reference
+
+#let show-reference(title, path) = {
+  heading(level: 2, title)
+  tidy.show-module(tidy.parse-module(read(path)))
+}
+
+#show-reference("Specs", "../src/spec.typ")
+#show-reference("Validation", "../src/validate.typ")
+#show-reference("Generation", "../src/generate.typ")
+#show-reference("Results", "../src/result.typ")
+#show-reference("Parsing", "../src/bootstrap.typ")
