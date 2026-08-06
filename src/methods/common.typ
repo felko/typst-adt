@@ -29,6 +29,50 @@
   self: depth => true,
 )(spec)
 
+#let spec-shallow(spec, depth: 0) = spec-elim(
+  builtin: type_ => spec,
+  any: () => spec,
+  enum: (name, constrs) => (
+    __tag__: "spec/enum",
+    name: name,
+    constrs: constrs.pairs().map(((constr-name, cs)) => (
+      constr-name,
+      constr-spec-elim(
+        null: (__tag__: "constr-spec/null"),
+        fields: field-specs => (
+          __tag__: "constr-spec/fields",
+          fields: field-specs.pairs().map(((fname, fspec)) => (
+            fname,
+            if depth <= 0 and spec-contains-self(fspec) {
+              any
+            } else {
+              spec-shallow(fspec, depth: depth - 1)
+            },
+          )).to-dict(),
+        ),
+      )(cs),
+    )).to-dict(),
+  ),
+  struct: (name, fields) => (
+    __tag__: "spec/struct",
+    name: name,
+    fields: fields.pairs().map(((fname, fspec)) => (
+      fname,
+      if depth <= 0 and spec-contains-self(fspec) {
+        any
+      } else {
+        spec-shallow(fspec, depth: depth - 1)
+      },
+    )).to-dict(),
+  ),
+  union: (name, elems) => spec,
+  array: (name, inner) => spec,
+  dictionary: (name, value) => spec,
+  function: (name, dom, cod) => spec,
+  fix: (name, fun) => spec-shallow(fun(spec), depth: depth),
+  self: depth_ => any,
+)(spec)
+
 /// Builds a readable generated-constructor name for traces.
 /// -> str
 #let constr-trace-name(spec, tag) = {
@@ -111,6 +155,19 @@
         arg
       }
       if spec-contains-self(field-spec) {
+        let result = validate(spec-shallow(field-spec, depth: 0), arg)
+        if result-is-err(result) {
+          return result-trace(
+            cont => (
+              __tag__: "trace/constr-field",
+              constr-spec: constr-spec,
+              constr-arg: field-name,
+              value: arg,
+              cont: cont,
+            ),
+            result,
+          )
+        }
         fields.insert(field-name, arg)
       } else {
         let result = validate(field-spec, arg)
@@ -229,6 +286,19 @@
         )
       }
       if spec-contains-self(field-spec) {
+        let result = validate(spec-shallow(field-spec, depth: 0), value.at(field-name))
+        if result-is-err(result) {
+          return result-trace(
+            cont => (
+              __tag__: "trace/constr-field",
+              constr-spec: constr-spec,
+              constr-arg: field-name,
+              value: value.at(field-name),
+              cont: cont,
+            ),
+            result,
+          )
+        }
         fields.insert(field-name, value.at(field-name))
       } else {
         let result = validate(field-spec, value.at(field-name))
