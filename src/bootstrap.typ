@@ -639,7 +639,19 @@
 /// Parses shorthand specs into explicit specs.
 ///
 /// Builtin types become builtin specs, plain dictionaries become struct specs,
-/// and nested specs are parsed recursively.
+/// and nested shorthand is parsed recursively.
+///
+/// Dictionaries that already carry a `spec/` tag are treated as parsed and
+/// returned as-is (after a cheap known-kind check) instead of being
+/// re-parsed recursively. Tagged specs are produced by the library's own
+/// constructors (or by an earlier `spec-parse` pass) with fully parsed
+/// children, so re-parsing them was pure re-normalization — and it ran at
+/// value-construction time whenever a `fix` spec was unfolded (the fixpoint
+/// function rebuilds its body with `enum`/`struct`/`array`, which call
+/// `spec-parse` on every child), stacking enough native call frames on deep
+/// spec trees to exceed Typst's maximum function call depth. Hand-written
+/// tagged dictionaries are only checked for a known kind here; shape errors
+/// in their fields surface later, at elimination or validation time.
 /// -> RESULT(spec)
 #let spec-parse(
   /// Spec shorthand.
@@ -652,160 +664,22 @@
     ok(spec)
   } else if std.type(spec) == std.dictionary {
     if spec.keys().contains("__tag__") and spec.__tag__.starts-with("spec/") {
-      let tag = spec.remove("__tag__")
-      if tag == "spec/empty" {
-        if spec.len() == 0 {
-          ok((__tag__: "spec/empty"))
-        } else {
-          err(
-            "too many fields in `spec/empty`: " + repr(spec.keys()),
-          )
-        }
-      } else if tag == "spec/builtin" {
-        let name = spec.remove("name", default: auto)
-        let value = spec.remove("value")
-        if std.type(value) == std.type {
-          if spec.len() == 0 {
-            ok((__tag__: "spec/builtin", name: name, value: value))
-          } else {
-            err(
-              "too many fields in `spec/builtin`: " + repr(spec.keys()),
-            )
-          }
-        } else {
-          err("expected type in `spec/builtin`, got " + repr(value))
-        }
-      } else if tag == "spec/any" {
-        if spec.len() == 0 {
-          ok((__tag__: "spec/any"))
-        } else {
-          err(
-            "too many fields in `spec/any`: " + repr(spec.keys()),
-          )
-        }
-      } else if tag == "spec/enum" {
-        let name = spec.remove("name", default: auto)
-        let constrs = spec.remove("constrs")
-        if std.type(constrs) == std.dictionary {
-          result-map(
-            constrs => (__tag__: "spec/enum", name: name, constrs: constrs),
-            result-all-dict(
-              args-spec => constr-spec-parse-aux(spec-parse, args-spec),
-              constrs,
-            ),
-          )
-        } else {
-          err(
-            "expected dictionary for `spec/enum` constructors, got "
-              + repr(constrs),
-          )
-        }
-      } else if tag == "spec/union" {
-        let name = spec.remove("name", default: auto)
-        let elems = spec.remove("elems")
-        if std.type(elems) == std.array {
-          if spec.len() == 0 {
-            result-map(
-              elems => (__tag__: "spec/union", name: name, elems: elems),
-              result-all(spec-parse, elems),
-            )
-          } else {
-            err(
-              "too many fields in `spec/union`: " + repr(spec.keys()),
-            )
-          }
-        } else {
-          err(
-            "expected array for `spec/union` elements, got " + repr(elems),
-          )
-        }
-      } else if tag == "spec/struct" {
-        let name = spec.remove("name", default: auto)
-        let fields = spec.remove("fields")
-        if std.type(fields) == std.dictionary {
-          if spec.len() == 0 {
-            result-map(
-              fields => (__tag__: "spec/struct", name: name, fields: fields),
-              result-all-dict(spec-parse, fields),
-            )
-          } else {
-            err(
-              "too many fields in `spec/struct`: " + repr(spec.keys()),
-            )
-          }
-        } else {
-          err(
-            "expected dictionary for `spec/struct` fields, got " + repr(fields),
-          )
-        }
-      } else if tag == "spec/array" {
-        let name = spec.remove("name", default: auto)
-        let inner = spec.remove("inner")
-        if spec.len() == 0 {
-          result-map(
-            inner => (__tag__: "spec/array", name: name, inner: inner),
-            spec-parse(inner),
-          )
-        } else {
-          err(
-            "too many fields in `spec/array`: " + repr(spec.keys()),
-          )
-        }
-      } else if tag == "spec/dictionary" {
-        let name = spec.remove("name", default: auto)
-        let value = spec.remove("value")
-        if spec.len() == 0 {
-          result-map(
-            value => (
-              __tag__: "spec/dictionary",
-              name: name,
-              value: value,
-            ),
-            spec-parse(value),
-          )
-        } else {
-          err(
-            "too many fields in `spec/dict`: " + repr(spec.keys()),
-          )
-        }
-      } else if tag == "spec/function" {
-        let name = spec.remove("name", default: auto)
-        let dom = spec.remove("dom")
-        let cod = spec.remove("cod")
-        if spec.len() == 0 {
-          result-map2(
-            (dom, cod) => (
-              __tag__: "spec/function",
-              name: name,
-              dom: dom,
-              cod: cod,
-            ),
-            args-spec-parse-aux(spec-parse, dom),
-            spec-parse(cod),
-          )
-        } else {
-          err(
-            "too many fields in `spec/function`: " + repr(spec.keys()),
-          )
-        }
-      } else if tag == "spec/fix" {
-        if not spec.keys().contains("fun") {
-          err("expected `fun` field for `spec/fix`: " + repr(spec))
-        } else {
-          let name = spec.remove("name", default: auto)
-          let fun = spec.remove("fun")
-          if spec.len() == 0 {
-            ok((__tag__: "spec/fix", name: name, fun: fun))
-          } else {
-            err(
-              "too many fields in `spec/fix`: " + repr(spec.keys()),
-            )
-          }
-        }
-      } else if tag == "spec/self" {
-        ok((__tag__: "spec/self", depth: spec.depth))
+      if (
+        "spec/empty",
+        "spec/builtin",
+        "spec/any",
+        "spec/enum",
+        "spec/union",
+        "spec/struct",
+        "spec/array",
+        "spec/dictionary",
+        "spec/function",
+        "spec/fix",
+        "spec/self",
+      ).contains(spec.__tag__) {
+        ok(spec)
       } else {
-        err("unknown spec kind: " + repr(tag))
+        err("unknown spec kind: " + repr(spec.__tag__))
       }
     } else {
       let name = spec.remove("name", default: spec.remove(

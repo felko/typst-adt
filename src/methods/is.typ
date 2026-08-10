@@ -37,6 +37,9 @@
 /// -> dictionary
 #let generate-is(spec) = spec-elim(
   enum: (name, constrs) => generate-enum-iss(spec),
-  fix: (name, fun) => generate-enum-iss(fun(spec)),
+  fix: (name, fun) => spec-elim(
+    enum: (name, constrs) => generate-enum-iss(fun(spec)),
+    __default__: (..args) => (:),
+  )(fun(spec)),
   __default__: (..args) => (:),
 )(spec)

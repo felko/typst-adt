@@ -57,7 +57,7 @@
       .keys()
       .map(field-name => (
         field-name,
-        value => pretty-result-unwrap(validate(spec, value)).at(field-name),
+        value => value.at(field-name),
       ))
       .to-dict(),
   ),
