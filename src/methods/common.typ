@@ -10,25 +10,75 @@
 )(spec)
 
 /// Returns whether a spec contains a recursive reference (fix or self).
+///
+/// Implemented iteratively with an explicit worklist rather than by direct
+/// recursion: this check runs for every constructor field on every value
+/// construction and projection (via `project-constr-args` / `project-constr`),
+/// and parsed specs nest arbitrarily deep, so the previous recursive
+/// traversal stacked several Typst call frames per spec level and exceeded
+/// the interpreter's maximum function call depth on realistic spec trees.
+/// Keeping pending sub-specs on heap data bounds stack usage to O(1),
+/// mirroring the worklist rewrite of `validate`.
 /// -> bool
-#let spec-contains-self(spec) = spec-elim(
-  builtin: type_ => false,
-  any: () => false,
-  enum: (name, constrs) => constrs.values().any(cs =>
-    constr-spec-elim(
-      null: false,
-      fields: fields => fields.values().any(spec-contains-self),
-    )(cs)
-  ),
-  struct: (name, fields) => fields.values().any(spec-contains-self),
-  union: (name, elems) => elems.any(spec-contains-self),
-  array: (name, inner) => spec-contains-self(inner),
-  dictionary: (name, value) => spec-contains-self(value),
-  function: (name, dom, cod) => false,
-  fix: (name, fun) => true,
-  self: depth => true,
-)(spec)
+#let spec-contains-self(spec) = {
+  let stack = (spec,)
+  let found = false
+  while stack.len() > 0 and not found {
+    let s = stack.pop()
+    if std.type(s) == std.type {
+      continue
+    }
+    if std.type(s) != std.dictionary {
+      panic("ill-formed spec", s)
+    }
+    if not s.keys().contains("__tag__") or not s.__tag__.starts-with("spec/") {
+      panic("dictionary specs must contain a `spec/` tag")
+    }
+    let tag = s.__tag__
+    if tag == "spec/fix" or tag == "spec/self" {
+      found = true
+    } else if tag == "spec/enum" {
+      for cs in s.constrs.values() {
+        if std.type(cs) != std.dictionary or not cs.keys().contains("__tag__") {
+          panic("dictionary constructor specs must contain `__tag__`")
+        }
+        if cs.__tag__ == "constr-spec/fields" {
+          stack += cs.fields.values()
+        } else if cs.__tag__ != "constr-spec/null" {
+          panic("unknown constructor spec kind: `" + cs.__tag__ + "`")
+        }
+      }
+    } else if tag == "spec/struct" {
+      stack += s.fields.values()
+    } else if tag == "spec/union" {
+      stack += s.elems
+    } else if tag == "spec/array" {
+      stack.push(s.inner)
+    } else if tag == "spec/dictionary" {
+      stack.push(s.value)
+    } else if (
+      tag == "spec/builtin" or tag == "spec/any" or tag == "spec/function"
+        or tag == "spec/empty"
+    ) {
+      // These cannot contain a recursive reference. Function domains and
+      // codomains are deliberately not traversed, matching the previous
+      // `function: (name, dom, cod) => false` behavior.
+    } else {
+      panic("unknown spec kind: `" + tag + "`")
+    }
+  }
+  found
+}
 
+/// Replaces recursive (fix/self-containing) constructor fields with `any`.
+///
+/// Field recursion is guarded: a field spec without any recursive reference
+/// is returned as-is, since recursing into it could only rebuild it
+/// identically. This bounds the recursion depth by the `depth` parameter
+/// (plus immediate `fix` unfoldings) instead of the full spec height, which
+/// — combined with the iterative `spec-contains-self` — keeps the per-field
+/// checks in `project-constr-args` / `project-constr` within Typst's
+/// maximum function call depth on deeply nested specs.
 #let spec-shallow(spec, depth: 0) = spec-elim(
   builtin: type_ => spec,
   any: () => spec,
@@ -43,7 +93,9 @@
           __tag__: "constr-spec/fields",
           fields: field-specs.pairs().map(((fname, fspec)) => (
             fname,
-            if depth <= 0 and spec-contains-self(fspec) {
+            if not spec-contains-self(fspec) {
+              fspec
+            } else if depth <= 0 {
               any
             } else {
               spec-shallow(fspec, depth: depth - 1)
@@ -58,7 +110,9 @@
     name: name,
     fields: fields.pairs().map(((fname, fspec)) => (
       fname,
-      if depth <= 0 and spec-contains-self(fspec) {
+      if not spec-contains-self(fspec) {
+        fspec
+      } else if depth <= 0 {
         any
       } else {
         spec-shallow(fspec, depth: depth - 1)
