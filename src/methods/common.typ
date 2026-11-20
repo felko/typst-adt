@@ -113,7 +113,7 @@
       if spec-contains-self(field-spec) {
         fields.insert(field-name, arg)
       } else {
-        let result = validate(field-spec, arg)
+        let result = ok(arg)//validate(field-spec, arg)
         if result-is-err(result) {
           return result-trace(
             cont => (
